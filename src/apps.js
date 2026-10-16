@@ -1722,6 +1722,7 @@
       wrap.append(out, line);
       win.content.append(wrap);
       const print = (html) => { const d = el("div", { html }); out.append(d); out.scrollTop = out.scrollHeight; };
+      const hist = [];   /* command history lives in this closure, not on `this` */
       print(`<span class="t-acc">NebulaOS Terminal ${Nebula.VERSION.os}</span>\nType <span class="t-ok">help</span> for the command list.`);
       const cmds = {
         help: () => `Commands:
@@ -1737,9 +1738,24 @@
   <span class="t-ok">proxy</span> [on|off|restart]     manage the service worker
   <span class="t-ok">fetch</span> &lt;url&gt;                proxied HEAD request through the wisp
   <span class="t-ok">open</span> &lt;appId|url&gt;           launch an app or browse
-  <span class="t-ok">ls</span> / <span class="t-ok">cat</span> &lt;path&gt;            virtual files
+  <span class="t-ok">netcheck</span>                 what exactly is blocked on this network
+  <span class="t-ok">wisp</span> <span class="t-ok">test</span>                probe every relay and keep the best
+  <span class="t-ok">probe</span> &lt;url&gt;              fetch any URL through the proxy
+  <span class="t-ok">ls</span> <span class="t-ok">cd</span> <span class="t-ok">cat</span> <span class="t-ok">write</span> <span class="t-ok">mkdir</span> <span class="t-ok">rm</span>  virtual files
+  <span class="t-ok">tree</span> <span class="t-ok">grep</span> &lt;file&gt; &lt;text&gt;  browse and search files
+  <span class="t-ok">apps</span> <span class="t-ok">run</span> &lt;id&gt;             list or launch apps
+  <span class="t-ok">windows</span> <span class="t-ok">focus</span> &lt;n&gt; <span class="t-ok">close</span> &lt;n&gt;  manage open windows
+  <span class="t-ok">tabs</span> <span class="t-ok">browse</span> &lt;url&gt;         browser tabs and navigation
+  <span class="t-ok">qopen</span> <span class="t-ok">discord</span> <span class="t-ok">games</span> <span class="t-ok">store</span>  quick launches
+  <span class="t-ok">clash</span>/<span class="t-ok">on</span>/<span class="t-ok">off</span> <span class="t-ok">auto</span>          the little game
+  <span class="t-ok">icons</span> <span class="t-ok">arrange</span> <span class="t-ok">hide</span> <span class="t-ok">show</span>   desktop icons
   <span class="t-ok">cloak</span> / <span class="t-ok">blob</span> / <span class="t-ok">anticlose</span>   privacy toggles
-  <span class="t-ok">date</span> <span class="t-ok">whoami</span> <span class="t-ok">clear</span> <span class="t-ok">exit</span>`,
+  <span class="t-ok">title</span> &lt;text&gt;              disguise the tab title
+  <span class="t-ok">sysinfo</span> <span class="t-ok">free</span> <span class="t-ok">uptime</span> <span class="t-ok">bench</span>   system info
+  <span class="t-ok">theme</span> <span class="t-ok">next</span> <span class="t-ok">wallpaper</span> <span class="t-ok">next</span>  cycle looks
+  <span class="t-ok">settings</span> &lt;pane&gt;             jump to a settings pane
+  <span class="t-ok">toast</span> &lt;text&gt; <span class="t-ok">echo</span> &lt;text&gt; <span class="t-ok">time</span> <span class="t-ok">history</span>
+  <span class="t-ok">matrix</span> <span class="t-ok">date</span> <span class="t-ok">whoami</span> <span class="t-ok">clear</span> <span class="t-ok">exit</span>`,
         about: () => `NebulaOS ${Nebula.VERSION.os} “${Nebula.VERSION.codename}” build ${Nebula.VERSION.build}
 Ultraviolet 3.2.10 · Scramjet 1.1.0 · Scramjet 2.0.67-alpha.2 · bare-mux 2.1.9
 Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
@@ -1747,6 +1763,7 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
         engine: async (a) => { if (!Nebula.ENGINES[a]) return `<span class="t-err">unknown engine</span> (uv, sc2, sc1)`; set({ engine: a }); await Proxy.ensureEngine(a); return `engine → <span class="t-ok">${Nebula.ENGINES[a].name}</span>`; },
         transport: async (a) => { if (!Nebula.TRANSPORTS[a]) return `<span class="t-err">unknown transport</span> (epoxy, libcurl)`; set({ transport: a }); await Proxy.restart(); return `transport → <span class="t-ok">${Nebula.TRANSPORTS[a].name}</span>`; },
         wisp: async (a) => {
+          if (a === "test") return cmds.wispTest();
           if (!a) return `current: ${state.wisp}\npresets:\n` + Nebula.WISP_PRESETS.map((p) => `  ${p.name}  <span class="t-dim">${p.url}</span>`).join("\n");
           const url = a === "presets" ? "" : a;
           if (!url) return Nebula.WISP_PRESETS.map((p) => `${p.name} <span class="t-dim">${p.url}</span>`).join("\n");
@@ -1775,6 +1792,122 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
         },
         ls: (a) => { FS.load(); return FS.list(a || "/").map((i) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n") || "(empty)"; },
         cat: (a) => { FS.load(); if (!a) return "usage: cat <path>"; return esc(FS.read(a)) || `<span class="t-err">not found: ${esc(a)}</span>`; },
+        async netcheck() { const r = await Proxy.netCheck(true); return `<span class="t-ok">${esc(r.verdict)}</span>\n${esc(r.advice)}`; },
+        async probe(a) {
+          if (!a) return "usage: probe <url>";
+          const url = Proxy.toUrl(a);
+          try {
+            const r = await Proxy.fetchText(url, state.engine, 20000);
+            const note = r.text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+            return `<span class="t-ok">HTTP ${r.status}</span> · ${r.text.length} bytes · ${esc(url)}\n<span class="t-dim">${esc(note)}…</span>`;
+          } catch (e) { return `<span class="t-err">${esc(String(e.message || e))}</span>`; }
+        },
+        async wispTest() {
+          return Proxy.netCheck(false).then((r) => r.rows.map((x) => `${x.ok ? "✔" : "✘"} ${x.label} <span class="t-dim">${esc(x.detail)}</span>`).join("\n") + `\n<span class="t-ok">${esc(r.verdict)}</span>`);
+        },
+        apps() { return Registry.all().map((a) => `  ${a.id.padEnd(22)} ${a.name}`).join("\n") || "(none)"; },
+        run(a) { const app = Registry.byId(a); if (!app) return `<span class="t-err">no such app</span> — try: apps`; app.run(); return `launched ${esc(app.name)}`; },
+        windows() {
+          const list = [...Nebula.wins.values()];
+          if (!list.length) return "no windows open";
+          return list.map((w, i) => `  ${i}  ${esc(w.title)}${document.querySelector("#" + w.id + ".focused") ? "  ← focused" : ""}`).join("\n");
+        },
+        focus(a) { const list = [...Nebula.wins.values()]; const w = list[Number(a)]; if (!w) return "usage: focus <number from windows>"; w.focus(); return `focused ${esc(w.title)}`; },
+        close(a) { const list = [...Nebula.wins.values()]; const w = list[Number(a)]; if (!w) return "usage: close <number from windows>"; const t = w.title; w.close(); return `closed ${esc(t)}`; },
+        tabs() { const ts = Nebula.Browser.tabs || []; if (!ts.length) return "no browser tabs (open the browser first)"; return ts.map((t, i) => `  ${i}${t.id === Nebula.Browser.active ? "*" : " "} ${esc(t.title || "New tab")} <span class="t-dim">${esc(t.currentUrl || "—")}</span>`).join("\n"); },
+        qopen(a) { if (!a) return "usage: qopen <url>"; if (!Nebula.Quantum.win) Nebula.Quantum.open(a); else Nebula.Quantum.navigate(a); return `Quantum → ${esc(a)}`; },
+        discord() { Nebula.Discord.open(); return "opening Discord through the proxy…"; },
+        games() { Nebula.Games.openHub(); return "game hub opened"; },
+        store() { Nebula.AppStore.open(); return "app store opened"; },
+        settings(a) { Settings.open(a || "appearance"); return `settings → ${esc(a || "appearance")}`; },
+        icons(a) {
+          if (a === "hide") { Nebula.Desktop.setHidden(true); return "desktop icons hidden"; }
+          if (a === "show") { Nebula.Desktop.setHidden(false); return "desktop icons shown"; }
+          if (a === "arrange") { Nebula.Desktop.arrange(); return "icons arranged"; }
+          return `${Nebula.Desktop.list().length} icons · icons hide | show | arrange`;
+        },
+        ls(a) { FS.load(); return FS.list(a || "/").map((i) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n") || "(empty)"; },
+        cd(a) { return "the shell is a flat virtual filesystem — use ls with a path, e.g. ls /Documents"; },
+        write(a) {
+          const i = a.indexOf(" ");
+          if (i < 0) return "usage: write <path> <text>";
+          const path = a.slice(0, i), text = a.slice(i + 1);
+          FS.load(); FS.write(path, text); return `wrote ${text.length} chars → ${esc(path)}`;
+        },
+        mkdir(a) { if (!a) return "usage: mkdir <path>"; FS.load(); FS.mkdir(a); return `created ${esc(a)}`; },
+        rm(a) { if (!a) return "usage: rm <path>"; FS.load(); FS.remove(a); return `removed ${esc(a)}`; },
+        tree() {
+          FS.load();
+          const walk = (dir, depth) => FS.list(dir).map((i) => `${"  ".repeat(depth)}${i.type === "dir" ? "📁" : "📄"} ${i.name}` +
+            (i.type === "dir" && depth < 2 ? "\n" + walk(dir.replace(/\/$/, "") + "/" + i.name, depth + 1) : "")).join("\n");
+          return walk("/", 0) || "(empty)";
+        },
+        grep(a) {
+          const i = a.indexOf(" ");
+          if (i < 0) return "usage: grep <file> <text>";
+          FS.load();
+          const body = FS.read(a.slice(0, i));
+          if (!body) return `<span class="t-err">not found</span>`;
+          const needle = a.slice(i + 1).toLowerCase();
+          const hits = body.split("\n").map((l, n) => [n + 1, l]).filter(([, l]) => l.toLowerCase().includes(needle));
+          return hits.length ? hits.map(([n, l]) => `<span class="t-dim">${n}:</span> ${esc(l.slice(0, 120))}`).join("\n") : "no matches";
+        },
+        title(a) { if (!a) return "current title: " + document.title; document.title = a; Appearance.applyCloak && Appearance.applyCloak(); return `title → ${esc(a)}`; },
+        sysinfo() {
+          const heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + " MB heap" : "heap n/a";
+          return `    <span class="t-acc">nebula@os</span>
+    ─────────────────────────────────
+    OS        NebulaOS ${Nebula.VERSION.os} "${Nebula.VERSION.codename}"
+    Build     ${Nebula.VERSION.build}   Uptime ${Math.round(performance.now() / 1000)}s
+    Screen    ${innerWidth}×${innerHeight} @${devicePixelRatio}x
+    Engine    ${Nebula.ENGINES[state.engine].name}
+    Transport ${Nebula.TRANSPORTS[state.transport].name}
+    Relay     ${state.wisp}
+    Theme     ${state.theme} · ${state.wallpaper} · ${state.browserSkin} skin
+    Windows   ${Nebula.wins.size} open · ${Nebula.Desktop.list().length} desktop icons
+    Report    ${navigator.hardwareConcurrency || "?"} cores · ${heap}`;
+        },
+        free() {
+          let used = 0;
+          try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) used += (localStorage[k] || "").length + k.length; } catch {}
+          return `localStorage: ${Nebula.fmtBytes ? fmtBytes(used) : used + " B"} used of ~5 MB quota`;
+        },
+        uptime() { return `up ${Math.round(performance.now() / 1000)}s since boot`; },
+        time() { return new Date().toLocaleTimeString(); },
+        echo(a) { return esc(a || ""); },
+        async bench() {
+          const t0 = performance.now(); let frames = 0, last = t0;
+          await new Promise((res) => {
+            const tick = (t) => { frames++; if (t - t0 > 1500) return res(); requestAnimationFrame(tick); };
+            requestAnimationFrame(tick); setTimeout(res, 2000);
+          });
+          const fps = Math.round((frames / (performance.now() - t0)) * 1000);
+          return `render bench: <span class="t-ok">${fps} fps</span> over 1.5s`;
+        },
+        theme(a) {
+          if (a === "next") { const i = Nebula.THEMES.findIndex((x) => x.id === state.theme); const n = Nebula.THEMES[(i + 1) % Nebula.THEMES.length]; set({ theme: n.id }); return `theme → ${n.name}`; }
+          if (a === "list" || !a) return Nebula.THEMES.map((x) => `  ${x.id.padEnd(12)} ${x.name}`).join("\n");
+          const t = Nebula.THEMES.find((x) => x.id === a);
+          if (!t) return `<span class="t-err">unknown theme</span> — theme list`;
+          set({ theme: t.id }); return `theme → ${t.name}`;
+        },
+        wallpaper(a) {
+          if (a === "next") { const i = Nebula.WALLS.findIndex((x) => x.id === state.wallpaper); const n = Nebula.WALLS[(i + 1) % Nebula.WALLS.length]; set({ wallpaper: n.id }); return `wallpaper → ${n.name}`; }
+          if (a === "list" || !a) return Nebula.WALLS.map((x) => `  ${x.id.padEnd(12)} ${x.name}`).join("\n");
+          const w = Nebula.WALLS.find((x) => x.id === a);
+          if (!w) return "gradient, aurora, glacier";
+          set({ wallpaper: w.id }); return `wallpaper → ${w.name}`;
+        },
+        toast(a) { if (!a) return "usage: toast <text>"; toast("Terminal", esc(a), "ok", 3000); return "toast sent"; },
+        history() { return hist.slice(-20).map((c, i) => `  ${i + 1}  ${esc(c)}`).join("\n") || "(empty)"; },
+        matrix() {
+          const chars = "01アイウエオカキクケコサシスセソ#$%&";
+          let rows = 12;
+          const draw = () => chars.split("").sort(() => Math.random() - 0.5).slice(0, 58).join("").replace(/[^ ]/g, (c) => `<span class="t-ok">${c}</span>`);
+          print(draw()); print(draw()); print(draw()); print(draw()); print(draw());
+          return `<span class="t-dim">(that is as much matrix as a terminal line can hold)</span>`;
+        },
+        clash() { return "clash is a browser-side game — try the Games app instead: <span class='t-ok'>games</span>"; },
         cloak: () => { Privacy.cloak(); return "tab cloaked → " + document.title; },
         blob: () => { Privacy.toBlob(); return "converting…"; },
         anticlose: (a) => { const v = a ? a === "on" : !state.anticlose; set({ anticlose: v }); return `anti-close → ${v ? "on" : "off"}`; },
@@ -1785,6 +1918,7 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
       };
       const run = async (raw) => {
         print(`<span class="t-dim">nebula@os:~$</span> ${esc(raw)}`);
+        if (raw.trim()) { hist.push(raw.trim()); if (hist.length > 50) hist.shift(); }
         const [c, ...rest] = raw.trim().split(/\s+/);
         const arg = rest.join(" ");
         if (!c) return;
