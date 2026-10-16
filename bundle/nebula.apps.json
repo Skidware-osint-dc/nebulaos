@@ -1,0 +1,70 @@
+[
+ {
+  "id": "bundled-app-diesmos",
+  "name": "Diesmos Games",
+  "kind": "app",
+  "icon": "📦",
+  "description": "Folder app from apps/diesmos/",
+  "category": "",
+  "path": "apps/diesmos/index.html",
+  "bytes": 398231,
+  "embedded": false,
+  "folder": true,
+  "files": 2
+ },
+ {
+  "id": "bundled-app-code-editor",
+  "name": "Code Editor",
+  "kind": "app",
+  "icon": "📝",
+  "description": "CodeMirror editor with file tree, syntax highlighting and zip export (jszip).",
+  "category": "Utilities",
+  "path": "apps/code-editor.html",
+  "bytes": 8723,
+  "embedded": true
+ },
+ {
+  "id": "bundled-app-swhelium",
+  "name": "SwHelium",
+  "kind": "app",
+  "icon": "💠",
+  "description": "Helium-style start page with its own app links and embeds. Loaded as a linked file because 1.2 MB is too big to inline.",
+  "category": "Internet",
+  "path": "apps/swhelium.html",
+  "bytes": 1278938,
+  "embedded": false
+ },
+ {
+  "id": "bundled-app-system-monitor",
+  "name": "System Monitor",
+  "kind": "app",
+  "icon": "📈",
+  "description": "Live frame-rate and heap graphs, the open window list and proxy health, straight from the NebulaOS shell API.",
+  "category": "",
+  "path": "apps/system-monitor.html",
+  "bytes": 13418,
+  "embedded": true
+ },
+ {
+  "id": "bundled-app-url-to-html",
+  "name": "URL to HTML",
+  "kind": "app",
+  "icon": "🔗",
+  "description": "Fetch a URL and get its HTML source with syntax highlighting, copy and download.",
+  "category": "Utilities",
+  "path": "apps/url-to-html.html",
+  "bytes": 6911,
+  "embedded": true
+ },
+ {
+  "id": "bundled-game-minesweeper",
+  "name": "Mines",
+  "kind": "game",
+  "icon": "💣",
+  "description": "Classic minesweeper — left click to dig, right click to flag. Three difficulties and per-board best times.",
+  "category": "Games",
+  "path": "games/minesweeper.html",
+  "bytes": 10771,
+  "embedded": true
+ }
+]

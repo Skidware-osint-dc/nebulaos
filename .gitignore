@@ -1,0 +1,19 @@
+# tool / build caches — never part of the deliverable
+.cache/
+node_modules/
+__pycache__/
+.venv/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.arena/
+# scratch
+*.log
+*.tmp
+.DS_Store
+
+# sandbox home-dir junk that is not part of the project
+.local/
+.npm/
+.sudo_as_admin_successful

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- ==========================================================================
+     NebulaOS app metadata — this is all you need to make a file look native.
+     Everything here is optional; without it NebulaOS falls back to <title>.
+     ========================================================================== -->
+<meta name="nebula-name" content="Hello Nebula">
+<meta name="nebula-icon" content="✨">                     <!-- emoji, or a path/URL to an image -->
+<meta name="nebula-description" content="Starter template that talks to the NebulaOS shell.">
+<meta name="nebula-kind" content="app">                    <!-- app | game -->
+<meta name="nebula-category" content="Utilities">          <!-- any App Store category -->
+<!-- ======================================================================= -->
+
+<meta name="color-scheme" content="dark light">
+<title>Hello Nebula</title>
+<style>
+  :root{
+    --bg:#0f1116; --panel:#181b23; --text:#e9edf7; --dim:#98a1b6;
+    --line:rgba(255,255,255,.09); --accent:#6c8cff;
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  /* when NebulaOS tells us which theme it is using, these win over the media query */
+  html[data-app-theme="dark"]{--bg:#0f1116;--panel:#181b23;--text:#e9edf7;--dim:#98a1b6;--line:rgba(255,255,255,.09)}
+  html[data-app-theme="light"]{--bg:#f2f4f9;--panel:#fff;--text:#131a26;--dim:#5c6579;--line:rgba(0,0,0,.1)}
+  @media (prefers-color-scheme: light){
+    :root:not([data-app-theme]){--bg:#f2f4f9;--panel:#fff;--text:#131a26;--dim:#5c6579;--line:rgba(0,0,0,.1)}
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);min-height:100%;display:grid;place-items:center;padding:26px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;max-width:460px;width:100%;
+        box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  h1{font-size:19px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  h1 span.dot{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9db2ff);
+        display:grid;place-items:center;font-size:16px}
+  p{color:var(--dim);font-size:13px;line-height:1.6}
+  .rows{margin-top:16px;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+  .row{display:flex;gap:10px}.row b{font-weight:600;min-width:96px;color:var(--dim)}
+  .row span{margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
+  button{margin-top:18px;font:inherit;font-size:13px;font-weight:650;padding:10px 15px;border-radius:11px;border:0;
+         background:var(--accent);color:#fff;cursor:pointer}
+  code{background:rgba(127,127,127,.18);padding:1px 5px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="dot">✨</span> Hello Nebula</h1>
+    <p>This is a starter single-file app. Drop it in <code>apps/</code>, rebuild, and it shows up in the App Store
+       and app grid with the name, icon and description from the meta tags at the top of this file.</p>
+    <div class="rows">
+      <div class="row"><b>Host</b><span id="host">standalone page</span></div>
+      <div class="row"><b>Theme</b><span id="theme">—</span></div>
+      <div class="row"><b>Engine</b><span id="engine">—</span></div>
+      <div class="row"><b>Transport</b><span id="transport">—</span></div>
+      <div class="row"><b>Windows open</b><span id="wins">—</span></div>
+      <div class="row"><b>Theme events</b><span id="events">0</span></div>
+    </div>
+    <button id="act">Say hello from the shell</button>
+  </div>
+
+<script>
+  /* ---------------------------------------------------------------------------
+     1. Theme sync — follow the desktop theme (fall back to the OS preference).
+     ------------------------------------------------------------------------ */
+  const root = document.documentElement;
+  const colorMeta = document.querySelector('meta[name="color-scheme"]');
+  function applyTheme() {
+    let dark = null;
+    try {
+      const host = window.parent !== window ? window.parent : null;
+      if (host && host.Nebula && host.document.body) dark = host.document.body.classList.contains("theme-dark");
+    } catch {}                       /* cross-origin or standalone — just guess */
+    if (dark === null) dark = !matchMedia("(prefers-color-scheme: light)").matches;
+    root.dataset.appTheme = dark ? "dark" : "light";
+    if (colorMeta) colorMeta.setAttribute("content", dark ? "dark" : "light");
+  }
+  applyTheme();
+
+  /* ---------------------------------------------------------------------------
+     2. Shell integration — window.parent.Nebula is the running desktop.
+        Everything below degrades gracefully when the file is opened directly.
+     ------------------------------------------------------------------------ */
+  const shell = (() => { try { return window.parent !== window ? window.parent.Nebula : null; } catch { return null; } })();
+
+  const el = (id) => document.getElementById(id);
+  let themeEvents = 0;
+
+  function sync() {
+    if (!shell) return;
+    const st = shell.state || {};
+    el("host").textContent = "inside NebulaOS";
+    el("theme").textContent = st.theme || "—";
+    el("engine").textContent = (shell.ENGINES?.[st.engine]?.name) || st.engine || "—";
+    el("transport").textContent = (shell.TRANSPORTS?.[st.transport]?.name) || st.transport || "—";
+    el("wins").textContent = String(shell.wins ? shell.wins.size : 0);
+  }
+  sync();
+  setInterval(sync, 1000);
+
+  if (shell?.bus) {
+    shell.bus.on("theme", () => { themeEvents++; el("events").textContent = themeEvents; applyTheme(); });
+  }
+  addEventListener("focus", applyTheme);
+
+  /* ---------------------------------------------------------------------------
+     3. Do shell things: toasts, dialogs, opening other apps, the clipboard.
+     ------------------------------------------------------------------------ */
+  el("act").onclick = () => {
+    if (!shell) return alert("Open this app inside NebulaOS to use the shell API.");
+    shell.toast("Hello from a drop-in app", "nebula.bus, shell.toast, shell.openApp — all available.", "ok");
+  };
+</script>
+</body>
+</html>

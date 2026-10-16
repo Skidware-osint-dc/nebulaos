@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- NebulaOS app metadata — build.py and the App Store importer both read these -->
+<meta name="nebula-name" content="Mines">
+<meta name="nebula-icon" content="💣">
+<meta name="nebula-kind" content="game">
+<meta name="nebula-category" content="Games">
+<meta name="nebula-description" content="Classic minesweeper — left click to dig, right click to flag. Three difficulties and per-board best times.">
+<meta name="color-scheme" content="dark light">
+<title>Mines</title>
+<style>
+  :root{
+    --bg:#0f1116; --panel:#181b23; --cell:#232733; --cell-hi:#2c313f;
+    --text:#e9edf7; --dim:#9aa3b8; --line:rgba(255,255,255,.09);
+    --accent:#6c8cff; --danger:#e0455f; --ok:#3fc48a; --warn:#e0a12a;
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#eef1f7;--panel:#fff;--cell:#dfe4ee;--cell-hi:#eaeff8;--text:#141a26;--dim:#5b6479;--line:rgba(0,0,0,.1)}
+  }
+  /* explicit attribute wins over the media query when NebulaOS tells us the theme */
+  html[data-app-theme="dark"]{--bg:--bg:#0f1116;--panel:#181b23;--cell:#232733;--cell-hi:#2c313f;--text:#e9edf7;--dim:#9aa3b8;--line:rgba(255,255,255,.09)}
+  html[data-app-theme="light"]{--bg:--bg:#eef1f7;--panel:#fff;--cell:#dfe4ee;--cell-hi:#eaeff8;--text:#141a26;--dim:#5b6479;--line:rgba(0,0,0,.1)}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:14px;padding:18px;user-select:none;overflow:hidden}
+  header{display:flex;align-items:center;gap:14px;width:100%;max-width:430px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:750;font-size:15px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#9db2ff);
+       display:grid;place-items:center;font-size:14px}
+  .spacer{flex:1}
+  .stat{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+        border-radius:10px;padding:6px 11px;font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:600}
+  .stat small{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  #board{display:grid;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;
+         box-shadow:0 18px 40px rgba(0,0,0,.35)}
+  .c{width:38px;height:38px;border-radius:8px;background:var(--cell);display:grid;place-items:center;
+     font-size:17px;font-weight:750;cursor:pointer;transition:background .12s,transform .08s}
+  .c:hover{background:var(--cell-hi)}
+  .c:active{transform:scale(.94)}
+  .c.open{background:color-mix(in srgb, var(--cell) 55%, transparent);cursor:default}
+  .c.open:hover{background:color-mix(in srgb, var(--cell) 55%, transparent)}
+  .c.mine{background:color-mix(in srgb, var(--danger) 28%, transparent)}
+  .c.flag{color:var(--danger)}
+  .c.wrong{background:color-mix(in srgb, var(--warn) 24%, transparent)}
+  .n1{color:#5aa9ff}.n2{color:#3fc48a}.n3{color:#e0455f}.n4{color:#9a7bff}
+  .n5{color:#e0a12a}.n6{color:#22b6c4}.n7{color:#e9edf7}.n8{color:#9aa3b8}
+  footer{display:flex;align-items:center;gap:10px;max-width:430px;width:100%}
+  button{font:inherit;font-size:13px;font-weight:600;padding:8px 15px;border-radius:10px;cursor:pointer;
+         border:1px solid var(--line);background:var(--panel);color:var(--text)}
+  button:hover{background:var(--cell-hi)}
+  button.primary{background:var(--accent);border-color:transparent;color:#fff}
+  .seg{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg button{border:0;background:transparent;padding:6px 12px;font-size:12.5px;color:var(--dim)}
+  .seg button.on{background:var(--accent);color:#fff}
+  #msg{font-size:13px;font-weight:600;color:var(--dim);min-height:18px}
+  #msg.win{color:var(--ok)} #msg.lose{color:var(--danger)}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="dot">💣</span> Mines</div>
+    <div class="spacer"></div>
+    <div class="stat"><small>Mines</small><span id="mines">10</span></div>
+    <div class="stat"><small>Time</small><span id="time">0</span></div>
+  </header>
+
+  <div id="board" aria-label="minefield"></div>
+
+  <footer>
+    <div class="seg" id="diff">
+      <button data-n="9" data-m="10" data-l="Easy" class="on">Easy</button>
+      <button data-n="12" data-m="24" data-l="Medium">Medium</button>
+      <button data-n="16" data-m="48" data-l="Hard">Hard</button>
+    </div>
+    <div class="spacer"></div>
+    <span id="msg"></span>
+    <button class="primary" id="again">New game</button>
+  </footer>
+
+<script>
+  /* NebulaOS integration: follow the desktop theme and expose the shell API.
+     Standalone (opened as a plain file) this falls back to the OS preference. */
+  (() => {
+    const root = document.documentElement;
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    const apply = () => {
+      let dark = null;
+      try {
+        const host = window.parent !== window ? window.parent : null;
+        if (host && host.Nebula && host.document.body) dark = host.document.body.classList.contains("theme-dark");
+      } catch {}
+      if (dark === null) dark = !matchMedia("(prefers-color-scheme: light)").matches;
+      root.dataset.appTheme = dark ? "dark" : "light";
+      if (meta) meta.setAttribute("content", dark ? "dark" : "light");
+    };
+    apply();
+    try { window.parent.Nebula.bus.on("theme", apply); } catch {}
+    addEventListener("focus", apply);
+    setInterval(apply, 2000);
+  })();
+(() => {
+  const board = document.getElementById("board");
+  const minesEl = document.getElementById("mines");
+  const timeEl = document.getElementById("time");
+  const msg = document.getElementById("msg");
+  let N = 9, M = 10, cells = [], opened = 0, flags = 0, started = false, dead = false, won = false, t0 = 0, timer = null;
+
+  const idx = (r, c) => r * N + c;
+  const inb = (r, c) => r >= 0 && c >= 0 && r < N && c < N;
+  const neigh = (r, c) => {
+    const out = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++)
+      if ((dr || dc) && inb(r + dr, c + dc)) out.push([r + dr, c + dc]);
+    return out;
+  };
+
+  function reset(n = N, m = M) {
+    N = n; M = m;
+    cells = Array.from({ length: N * N }, () => ({ mine: false, open: false, flag: false, n: 0 }));
+    opened = 0; flags = 0; started = false; dead = false; won = false;
+    clearInterval(timer); timer = null; t0 = 0; timeEl.textContent = "0";
+    msg.textContent = ""; msg.className = "";
+    minesEl.textContent = M;
+    board.style.gridTemplateColumns = `repeat(${N}, 38px)`;
+    board.innerHTML = "";
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const el = document.createElement("button");
+      el.className = "c";
+      el.dataset.r = r; el.dataset.c = c;
+      el.addEventListener("click", () => dig(r, c));
+      el.addEventListener("contextmenu", (e) => { e.preventDefault(); flag(r, c); });
+      board.append(el);
+    }
+  }
+  const cellEl = (r, c) => board.children[idx(r, c)];
+
+  function placeMines(sr, sc) {
+    let placed = 0;
+    while (placed < M) {
+      const r = Math.floor(Math.random() * N), c = Math.floor(Math.random() * N);
+      if (cells[idx(r, c)].mine) continue;
+      if (Math.abs(r - sr) <= 1 && Math.abs(c - sc) <= 1) continue;   // never on the first click
+      cells[idx(r, c)].mine = true; placed++;
+    }
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+      cells[idx(r, c)].n = neigh(r, c).filter(([a, b]) => cells[idx(a, b)].mine).length;
+  }
+
+  function startTimer() {
+    t0 = Date.now();
+    timer = setInterval(() => { timeEl.textContent = Math.floor((Date.now() - t0) / 1000); }, 250);
+  }
+
+  function paint(r, c) {
+    const cell = cells[idx(r, c)], el = cellEl(r, c);
+    el.className = "c" + (cell.open ? " open" : "") + (cell.flag && !cell.open ? " flag" : "") +
+      (cell.open && cell.mine ? " mine" : "") + (cell.open && cell.n ? " n" + cell.n : "");
+    el.textContent = cell.open ? (cell.mine ? "💣" : cell.n || "") : cell.flag ? "⚑" : "";
+  }
+
+  function flood(r, c) {
+    const st = [[r, c]];
+    while (st.length) {
+      const [a, b] = st.pop();
+      const cell = cells[idx(a, b)];
+      if (cell.open || cell.flag) continue;
+      cell.open = true; opened++; paint(a, b);
+      if (!cell.n) neigh(a, b).forEach(([x, y]) => { if (!cells[idx(x, y)].open) st.push([x, y]); });
+    }
+  }
+
+  function dig(r, c) {
+    if (dead || won) return;
+    const cell = cells[idx(r, c)];
+    if (cell.open || cell.flag) return;
+    if (!started) { started = true; placeMines(r, c); startTimer(); }
+    if (cell.mine) return lose(r, c);
+    if (cell.n) { cell.open = true; opened++; paint(r, c); }
+    else flood(r, c);
+    check();
+  }
+
+  function flag(r, c) {
+    if (dead || won) return;
+    const cell = cells[idx(r, c)];
+    if (cell.open) return;
+    cell.flag = !cell.flag;
+    flags += cell.flag ? 1 : -1;
+    minesEl.textContent = M - flags;
+    paint(r, c);
+  }
+
+  function lose(hr, hc) {
+    dead = true;
+    clearInterval(timer);
+    cells.forEach((cell, i) => {
+      if (cell.mine) { cell.open = true; paint(Math.floor(i / N), i % N); }
+      else if (cell.flag) { const el = cellEl(Math.floor(i / N), i % N); el.classList.add("wrong"); el.textContent = "✕"; }
+    });
+    const el = cellEl(hr, hc); el.classList.add("mine"); el.textContent = "💥";
+    msg.textContent = "Boom — press New game"; msg.className = "lose";
+  }
+
+  function check() {
+    if (opened === N * N - M) {
+      won = true; clearInterval(timer);
+      cells.forEach((cell, i) => { if (cell.mine && !cell.flag) { cell.flag = true; paint(Math.floor(i / N), i % N); } });
+      minesEl.textContent = 0;
+      const secs = Math.floor((Date.now() - t0) / 1000);
+      msg.textContent = `Cleared in ${secs}s 🎉`; msg.className = "win";
+      try {
+        const best = JSON.parse(localStorage.getItem("nebula.mines.best") || "{}");
+        if (!best[M] || secs < best[M]) { best[M] = secs; localStorage.setItem("nebula.mines.best", JSON.stringify(best)); }
+      } catch {}
+    }
+  }
+
+  document.getElementById("again").addEventListener("click", () => reset(N, M));
+  document.getElementById("diff").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-n]");
+    if (!b) return;
+    document.querySelectorAll("#diff button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+    reset(+b.dataset.n, +b.dataset.m);
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

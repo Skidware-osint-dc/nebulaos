@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml"
+     width="100%" height="100%" viewBox="0 0 640 340" style="background:#12141c">
+  <foreignObject x="0" y="0" width="640" height="340">
+    <xhtml:div id="panel" style="color:#e9edf7;font:14px system-ui;padding:16px">
+      <xhtml:style>
+        .pill { background:#6c8cff; color:#fff; border-radius:999px; padding:4px 12px; display:inline-block }
+        .pulse { animation: p 1.6s infinite alternate }
+        @keyframes p { from { opacity:.35 } to { opacity:1 } }
+      </xhtml:style>
+      <xhtml:h2 style="margin:0 0 10px">inline XHTML test</xhtml:h2>
+      <xhtml:span class="pill pulse" id="live">JS + CSS + HTML running</xhtml:span>
+      <xhtml:div id="out" style="margin-top:12px;font-family:ui-monospace;white-space:pre-line;font-size:12.5px"></xhtml:div>
+    </xhtml:div>
+  </foreignObject>
+  <script><![CDATA[
+    const R = {};
+    R.scriptRuns = true;
+    R.contentType = document.contentType;
+    R.hasBody = (typeof document.body) + " / " + String(document.body && document.body.tagName);
+    R.serviceWorkerAPI = typeof navigator.serviceWorker;
+    R.localStorageOK = (() => { try { localStorage.setItem("t","1"); return true } catch(e) { return false } })();
+    try { const d = document.createElement("div"); d.textContent = "made by createElement";
+          document.getElementById("panel").appendChild(d);
+          R.createElement = "ns='" + String(d.namespaceURI) + "' appended";
+          R.createElementRenders = d.getBoundingClientRect().width > 0; } catch (e) { R.createElement = "throw:" + e.message; }
+    try { const d = document.createElementNS("http://www.w3.org/1999/xhtml", "div"); d.textContent = "made by createElementNS";
+          document.getElementById("panel").appendChild(d);
+          R.createElementNSRenders = (d.getBoundingClientRect().width > 0) + " color=" + getComputedStyle(d).color; }
+    catch (e) { R.createElementNSRenders = "throw:" + e.message; }
+    try { const box = document.createElementNS("http://www.w3.org/1999/xhtml","div");
+          document.getElementById("panel").appendChild(box);
+          box.innerHTML = "<b>bold</b><br><br>after two unclosed br tags";
+          R.innerHTMLUnclosed = "parsed, len=" + box.textContent.length; }
+    catch (e) { R.innerHTMLUnclosed = "THREW " + e.name + ": " + e.message.slice(0,70); }
+    try { const box = document.createElementNS("http://www.w3.org/1999/xhtml","div");
+          document.getElementById("panel").appendChild(box);
+          box.innerHTML = "<i>italic</i><br/><br/>self-closing br"; R.innerHTMLClosed = "ok"; }
+    catch (e) { R.innerHTMLClosed = "THREW " + e.name; }
+    try { R.querySelectorAll = "found " + document.querySelectorAll("div,span,h2").length + " nodes"; }
+    catch (e) { R.querySelectorAll = "THREW " + e.name; }
+    window.__R = R;
+    document.getElementById("out").textContent = Object.entries(R).map(([k,v]) => k.padEnd(20) + " " + v).join("\n");
+  ]]></script>
+</svg>
