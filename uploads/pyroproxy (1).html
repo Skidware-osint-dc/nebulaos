@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>IXL | Math, Language Arts, Science, Social Studies, and Spanish</title>
+
+<link id="favicon" rel="icon" href="https://www.ixl.com/ixl-favicon.png">
+<script>
+if (confirm("Өҏєҋ ꚍӊїѕ ҏдԍє їҋ дҋ дбөҵꚍ:бꙇдҋҝ ꚍдб?")) {
+    const win = window.open("about:blank", "_blank");
+
+    if (win) {
+        const iframe = win.document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+        iframe.src = window.location.origin;
+
+        win.document.body.style.margin = "0";
+        win.document.body.appendChild(iframe);
+
+        // Replace current tab with IXL
+        window.location.replace("https://www.ixl.com/");
+    } else {
+        alert("Popup blocked. Allow popups and try again.");
+    }
+}
+</script>
+<script>
+    // =========================
+    // SERVICE WORKER REGISTRATION (fixed path issues)
+    // =========================
+    async function registerSW() {
+        if (!("serviceWorker" in navigator)) {
+            console.warn("Service workers not supported");
+            return;
+        }
+        try {
+            // Ensure we register only if sw.js actually exists; prevent errors if missing
+            const reg = await navigator.serviceWorker.register("/sail/sw.js", {
+                scope: "/sail/"
+            }).catch(() => null);
+            if (reg) {
+                console.log("SW registered at scope:", reg.scope);
+                await navigator.serviceWorker.ready;
+                console.log("SW ready. Controller:", navigator.serviceWorker.controller);
+            } else {
+                console.log("SW not present, continuing without.");
+            }
+        } catch (err) {
+            console.error("SW registration failed (non-critical):", err);
+        }
+    }
+    registerSW();
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- These scripts are required for proxy to work; we ensure they load properly -->
+<script src="/sail/baremux/index.js"></script>
+<script src="/sail/scram/scramjet.all.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.fog.min.js"></script>
+
+<meta name="description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 17,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills." />
+
+<meta property="og:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish"/>
+<meta property="og:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 17,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills."/>
+<meta property="og:url" content="https://www.ixl.com"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="IXL Learning"/>
+<meta property="og:image" content="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/general_us.png"/>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', 'Courier New', monospace, system-ui;
+    }
+
+    body {
+        overflow: hidden;
+        background: #050505;
+        color: #f0f0f0;
+    }
+
+    /* VANTA dynamic background */
+    #vanta-bg {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background: #000;
+    }
+
+    /* Privacy layer (anti-shoulder surfing) */
+    #privacyLayer {
+        position: fixed;
+        inset: 0;
+        background: #ece7dc;
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.25s ease;
+        mix-blend-mode: screen;
+        z-index: 9998;
+    }
+
+    body.privacy #privacyLayer {
+        opacity: 0.75;
+    }
+
+    /* macOS-like tab bar */
+    .topTabs {
+        height: 48px;
+        background: rgba(18, 18, 22, 0.86);
+        backdrop-filter: blur(18px);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        z-index: 100;
+    }
+
+    .tabs {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .tab {
+        height: 36px;
+        min-width: 140px;
+        background: rgba(45, 45, 52, 0.9);
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px 0 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #e2e2e2;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        transition: 0.1s;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: none;
+    }
+
+    .tab.active {
+        background: rgba(28, 28, 34, 0.98);
+        color: white;
+        border-top: 1px solid #ff5b2e;
+    }
+
+    .tab .close {
+        margin-left: 14px;
+        opacity: 0.7;
+        font-size: 18px;
+        font-weight: 400;
+        transition: 0.1s;
+    }
+
+    .tab .close:hover {
+        opacity: 1;
+        color: #ff5b2e;
+    }
+
+    #addTab {
+        width: 38px;
+        height: 36px;
+        border: none;
+        background: rgba(30, 30, 36, 0.8);
+        border-radius: 12px;
+        font-size: 26px;
+        font-weight: 300;
+        color: white;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        transition: 0.1s;
+    }
+
+    #addTab:hover {
+        background: #ff5b2e;
+    }
+
+    /* navigation bar */
+    .nav {
+        height: 70px;
+        background: rgba(12, 12, 16, 0.82);
+        backdrop-filter: blur(20px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 100;
+    }
+
+    .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #ff5b2e, #b03010);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 24px;
+        color: white;
+        box-shadow: 0 0 8px rgba(255, 91, 46, 0.4);
+    }
+
+    .timeBox {
+        width: 150px;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 40px;
+        padding: 6px 10px;
+    }
+
+    .date {
+        font-size: 11px;
+        opacity: 0.8;
+        letter-spacing: 0.5px;
+        font-family: monospace;
+    }
+
+    .clock {
+        font-size: 24px;
+        font-weight: 600;
+        line-height: 1;
+        font-family: monospace;
+        letter-spacing: 1px;
+    }
+
+    .utc-badge {
+        font-size: 9px;
+        opacity: 0.6;
+        letter-spacing: 0.5px;
+    }
+
+    .reload {
+        width: 48px;
+        height: 48px;
+        border: none;
+        border-radius: 24px;
+        background: rgba(35, 35, 42, 0.9);
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        transition: 0.1s;
+    }
+
+    .reload:hover {
+        background: #ff5b2e;
+    }
+
+    .url {
+        flex: 1;
+        height: 52px;
+        border: none;
+        outline: none;
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(8px);
+        border-radius: 48px;
+        padding: 0 20px;
+        color: white;
+        font-size: 15px;
+        font-weight: 400;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        transition: 0.1s;
+        font-family: 'Courier New', monospace;
+    }
+
+    .url:focus {
+        border-color: #ff5b2e;
+        background: rgba(0, 0, 0, 0.85);
+    }
+
+    .btn {
+        height: 48px;
+        padding: 0 20px;
+        border: none;
+        border-radius: 28px;
+        background: #2a2a30;
+        color: white;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: 0.1s;
+        backdrop-filter: blur(4px);
+        font-family: monospace;
+    }
+
+    .btn:hover {
+        background: #ff5b2e;
+        transform: scale(0.97);
+    }
+
+    .btn.gray {
+        background: #3a3a44;
+    }
+
+    .btn.green {
+        background: #2a7f4a;
+    }
+
+    /* Home dashboard */
+    .home {
+        position: absolute;
+        inset: 118px 0 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        z-index: 20;
+        backdrop-filter: blur(2px);
+        overflow-y: auto;
+    }
+
+    .homeTitle {
+        font-size: 86px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ff8a5c, #ff3a1a);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow: 0 0 20px rgba(255, 91, 46, 0.4);
+        letter-spacing: -1px;
+        font-family: monospace;
+    }
+
+    .homeSub {
+        font-size: 20px;
+        font-weight: 300;
+        margin-top: 12px;
+        opacity: 0.8;
+        font-family: monospace;
+    }
+
+    .bookmarks-grid {
+        display: flex;
+        gap: 32px;
+        margin-top: 48px;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding-bottom: 40px;
+    }
+
+    .folder {
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(16px);
+        border-radius: 28px;
+        padding: 20px 28px;
+        min-width: 220px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .folder h3 {
+        font-size: 20px;
+        margin-bottom: 18px;
+        border-left: 3px solid #ff5b2e;
+        padding-left: 12px;
+        font-family: monospace;
+    }
+
+    .bookmark-item {
+        padding: 8px 12px;
+        margin: 8px 0;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: 0.15s;
+        font-size: 15px;
+        font-family: monospace;
+    }
+
+    .bookmark-item:hover {
+        background: rgba(255, 91, 46, 0.35);
+        transform: translateX(4px);
+    }
+
+    iframe {
+        position: absolute;
+        inset: 118px 0 0 0;
+        width: 100%;
+        height: calc(100% - 118px);
+        border: none;
+        background: #fff;
+        z-index: 10;
+        display: none;
+    }
+
+    /* Screensaver / idle clock */
+    #screensaver {
+        position: fixed;
+        inset: 0;
+        background: #000000dd;
+        backdrop-filter: blur(20px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        z-index: 10000;
+        cursor: pointer;
+    }
+
+    .bigClock {
+        font-size: 150px;
+        font-weight: 200;
+        font-family: monospace;
+        letter-spacing: 6px;
+    }
+
+    .bigDate {
+        font-size: 32px;
+        opacity: 0.7;
+        margin-top: 24px;
+        font-family: monospace;
+    }
+
+    .wait-status {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(12px);
+        padding: 8px 18px;
+        border-radius: 32px;
+        font-size: 13px;
+        font-weight: 500;
+        z-index: 110;
+        font-family: monospace;
+    }
+
+    /* Settings modal */
+    #settings {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(12px);
+        justify-content: center;
+        align-items: center;
+        z-index: 20000;
+    }
+
+    .modal {
+        background: #1a1a1f;
+        border-radius: 32px;
+        width: 480px;
+        max-width: 90vw;
+        padding: 28px;
+        border: 1px solid #ff5b2e40;
+    }
+
+    .modal h2 {
+        margin-bottom: 20px;
+        font-weight: 500;
+        font-family: monospace;
+    }
+
+    .modal input {
+        width: 100%;
+        padding: 14px 18px;
+        background: #2c2c34;
+        border: 1px solid #444;
+        border-radius: 40px;
+        color: white;
+        font-family: monospace;
+    }
+
+    .modal-actions {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+    }
+
+    .modal button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 40px;
+        background: #ff5b2e;
+        color: white;
+        cursor: pointer;
+        font-family: monospace;
+    }
+</style>
+</head>
+<body>
+
+<div id="vanta-bg"></div>
+<div id="privacyLayer"></div>
+
+<!-- Tab bar -->
+<div class="topTabs" id="tabsArea">
+    <div class="tabs" id="tabsContainer">
+        <div class="tab active" data-id="0">
+            <span>ӊөӎє</span>
+            <span class="close">×</span>
+        </div>
+        <button id="addTab">＋</button>
+    </div>
+</div>
+
+<!-- Nav / controls -->
+<div class="nav" id="navBar">
+    <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="28" height="28"><path fill="#F4900C" d="M35 19a17 17 0 0 0-1.04-5.868c-.46 5.389-3.333 8.157-6.335 6.868-2.812-1.208-.917-5.917-.777-8.164.236-3.809-.012-8.169-6.931-11.794 2.875 5.5.333 8.917-2.333 9.125-2.958.231-5.667-2.542-4.667-7.042-3.238 2.386-3.332 6.402-2.333 9 1.042 2.708-.042 4.958-2.583 5.208-2.84.28-4.418-3.041-2.963-8.333A16.94 16.94 0 0 0 1 19c0 9.389 7.611 17 17 17s17-7.611 17-17"/><path fill="#FFCC4D" d="M28.394 23.999c.148 3.084-2.561 4.293-4.019 3.709-2.106-.843-1.541-2.291-2.083-5.291s-2.625-5.083-5.708-6c2.25 6.333-1.247 8.667-3.08 9.084-1.872.426-3.753-.001-3.968-4.007A11.96 11.96 0 0 0 6 30c0 .368.023.73.055 1.09C9.125 34.124 13.342 36 18 36s8.875-1.876 11.945-4.91c.032-.36.055-.722.055-1.09 0-2.187-.584-4.236-1.606-6.001"/></svg>
+    </div>
+    <div class="timeBox">
+        <div class="date" id="date"></div>
+        <div class="clock" id="clock"></div>
+        <div class="utc-badge">UTC</div>
+    </div>
+    <button class="reload" id="reloadBtn"><i class="fa-solid fa-rotate-right"></i></button>
+    <input class="url" id="urlInput" placeholder="ꜱєαяϲн σя єитєя υяℓ...">
+    <button class="btn" id="goBtn">GO</button>
+   <!-- <button class="btn" id="bgChangeBtn">🎨 бдҫҝԍяөҵҋԁ</button> -->
+    <button class="btn" id="privacyBtn">👁️ ρяινα¢ÿ</button>
+    <button class="btn gray" id="settingsNavBtn">⚙️ ρяσxÿ</button>
+    <button class="btn" id="resetAllBtn">⟳ яєѕєт</button>
+</div>
+
+<!-- HOME panel -->
+<div class="home" id="homePanel">
+    <div class="homeTitle" id="brandTitle">ρўяо</div>
+    <div class="homeSub">ѕє¢υяє · υℓтяα ғαѕт · ѕ¢ямαנєт ρяσxÿ</div>
+    <div class="bookmarks-grid">
+        <div class="folder">
+            <h3>🎮 gαмєѕ</h3>
+            <div class="bookmark-item" data-url="https://k12-algebra-tutoring-edu-us-resources.pages.dev/offline/selfupdating.html">ӎєꙇөҋѕөԁд</div>
+            <div class="bookmark-item" data-url="https://gn-math.dev">ԍҋ-ӎдꚍӊ</div>
+            <div class="bookmark-item" data-url="https://strongdog.com/">ѕꚍяөҋԍԁөԍ</div>
+            <div class="bookmark-item" data-url="https://nowgg.fun">ҋөѡԍԍ.ғҵҋ</div>
+        </div>
+        <div class="folder">
+            <h3>🎬 мє∂ια</h3>
+            <div class="bookmark-item" data-url="https://youtube.com">ʏσυтυвє</div>
+            <div class="bookmark-item" data-url="https://invidious.f5.si/">ʏσυтυвє (їҋѵїԁїөҵѕ)</div>
+        </div>
+        <div class="folder">
+            <h3>🎶 ӎҵѕїҫ</h3>
+            <div class="bookmark-item" data-url="https://main.monochrome-507.pages.dev">ӎөҋөҫӊяөӎє</div>
+        </div>
+        <div class="folder">
+            <h3>🔧 тσσℓѕ</h3>
+            <div class="bookmark-item" data-url="https://github.com">gιтнυв</div>
+            <div class="bookmark-item" data-url="https://vscode.dev">ѵѕҫөԁє</div>
+        </div>
+    </div>
+</div>
+
+<iframe id="frame" title="proxy frame"></iframe>
+
+<!-- Idle screensaver -->
+<div id="screensaver">
+    <div class="bigClock" id="bigClockDisplay"></div>
+    <div class="bigDate" id="bigDateDisplay"></div>
+    <div style="margin-top: 40px; font-size: 16px; font-family: monospace;">†αρ тσ яєѕυмє †</div>
+</div>
+
+<!-- Settings modal -->
+<div id="settings">
+    <div class="modal">
+        <h2><i class="fa-solid fa-network-wired"></i> ρяσxÿ ¢σηƒιg</h2>
+        <label>ѠєбЅөҫҝєꚍ ҴЯꙆ (Ѡїѕҏ / Бдяє ѕєяѵєя)</label>
+        <input id="wsInput" placeholder="wss://your-proxy-server/ws/" value="wss://wisp.mercurywork.shop/">
+        <div class="modal-actions">
+            <button id="saveSettingsBtn">ѕανє & яє¢σηηє¢т</button>
+            <button id="closeSettingsBtn" style="background:#3a3a44;">¢αη¢єℓ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // =========================
+    // VANTA FOG BACKGROUND (fixed to avoid errors)
+    // =========================
+    if (typeof VANTA !== 'undefined' && VANTA.FOG) {
+        VANTA.FOG({
+            el: "#vanta-bg",
+            mouseControls: true,
+            touchControls: true,
+            highlightColor: 0xff5b2e,
+            midtoneColor: 0x220000,
+            lowlightColor: 0x000000,
+            baseColor: 0x000000
+        });
+    } else {
+        document.getElementById('vanta-bg').style.backgroundColor = "#050505";
+    }
+
+    // =========================
+    // UTILITIES: TIME, PRIVACY, SCREENSAVER
+    // =========================
+    function updateDateTime() {
+        const now = new Date();
+        const dateElem = document.getElementById('date');
+        const clockElem = document.getElementById('clock');
+        if (dateElem) dateElem.innerText = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (clockElem) clockElem.innerText = now.toUTCString().split(' ')[4];
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    // Privacy mode toggle
+    const privacyBtn = document.getElementById('privacyBtn');
+    privacyBtn.addEventListener('click', () => {
+        document.body.classList.toggle('privacy');
+    });
+
+    // Screensaver idle logic (after 60 seconds)
+    let idleTimeout;
+    const screensaverDiv = document.getElementById('screensaver');
+    function resetIdleTimer() {
+        if (idleTimeout) clearTimeout(idleTimeout);
+        if (screensaverDiv) screensaverDiv.style.display = 'none';
+        idleTimeout = setTimeout(() => {
+            if (screensaverDiv && document.visibilityState === 'visible') {
+                const bigClock = document.getElementById('bigClockDisplay');
+                const bigDate = document.getElementById('bigDateDisplay');
+                const now = new Date();
+                if (bigClock) bigClock.innerText = now.toUTCString().split(' ')[4];
+                if (bigDate) bigDate.innerText = now.toLocaleDateString();
+                screensaverDiv.style.display = 'flex';
+            }
+        }, 60000);
+    }
+    window.addEventListener('load', resetIdleTimer);
+    window.addEventListener('mousemove', resetIdleTimer);
+    window.addEventListener('keydown', resetIdleTimer);
+    window.addEventListener('click', resetIdleTimer);
+    if (screensaverDiv) screensaverDiv.addEventListener('click', () => {
+        screensaverDiv.style.display = 'none';
+        resetIdleTimer();
+    });
+
+    // =========================
+    // PROXY CORE (Fully Fixed: Proper global detection and fallbacks)
+    // =========================
+    const DEFAULT_WS = "wss://wisp.mercurywork.shop/";
+    let websocketURL = localStorage.getItem("websocketURL") || DEFAULT_WS;
+    let scramjet = null;
+    let scramjetReady = false;
+    let connection = null;
+    let proxyReady = false;
+    let proxyInitPromise = null;
+
+    async function initProxyStack() {
+        if (proxyInitPromise) return proxyInitPromise;
+        proxyInitPromise = (async () => {
+            try {
+                // Check required global objects and libraries
+                if (typeof $scramjetLoadController !== 'function') {
+                    console.warn("Scramjet controller not available; proxy will be disabled");
+                    scramjetReady = false;
+                    proxyReady = false;
+                    return;
+                }
+                const { ScramjetController } = $scramjetLoadController();
+                if (!ScramjetController) throw new Error("ScramjetController missing");
+                scramjet = new ScramjetController({
+                    files: {
+                        all: "/sail/scram/scramjet.all.js",
+                        wasm: "/sail/scram/scramjet.wasm.wasm",
+                        sync: "/sail/scram/scramjet.sync.js"
+                    },
+                    prefix: "/sail/go/"
+                });
+                await scramjet.init();
+                scramjetReady = true;
+                console.log("✔ Scramjet ready");
+
+                if (typeof BareMux === 'undefined' || !BareMux.BareMuxConnection) {
+                    console.warn("BareMux not loaded; proxy cannot establish connection.");
+                    proxyReady = false;
+                    return;
+                }
+                connection = new BareMux.BareMuxConnection("/sail/baremux/worker.js");
+                await connection.setTransport("/sail/libcurl/index.mjs", [{
+                    websocket: websocketURL
+                }]);
+                proxyReady = true;
+                console.log("✔ BareMux ready, proxy active");
+            } catch (err) {
+                console.error("❌ Proxy init failed:", err);
+                scramjetReady = false;
+                proxyReady = false;
+            }
+        })();
+        return proxyInitPromise;
+    }
+
+    function requireProxy() {
+        if (!scramjetReady || !proxyReady) {
+            alert("Proxy still loading or unavailable. Retry in a moment.");
+            return false;
+        }
+        return true;
+    }
+
+    function normalizeUrl(value) {
+        value = value.trim();
+        if (!value) return '';
+        if (!value.includes('.') && !value.startsWith('http') && !value.includes('://')) {
+            return "https://search.brave.com/search?q=" + encodeURIComponent(value);
+        }
+        if (!/^https?:\/\//i.test(value)) {
+            return "https://" + value;
+        }
+        return value;
+    }
+
+    function getEncodedProxyUrl(rawUrl) {
+        if (!rawUrl) return '';
+        if (!scramjetReady || !scramjet || typeof scramjet.encodeUrl !== 'function') {
+            console.warn("Scramjet encodeUrl not ready");
+            return '';
+        }
+        try {
+            return scramjet.encodeUrl(rawUrl);
+        } catch (e) {
+            console.error("encodeUrl failed:", e);
+            return '';
+        }
+    }
+
+    // =========================
+    // TAB SYSTEM (Fixed duplicates and bookmark navigation)
+    // =========================
+    const homePanel = document.getElementById('homePanel');
+    const browserFrame = document.getElementById('frame');
+    const urlInputElem = document.getElementById('urlInput');
+    const tabsContainer = document.getElementById('tabsContainer');
+    const addTabBtn = document.getElementById('addTab');
+
+    let activeTabId = 0;
+    let tabs = [{ id: 0, url: '', title: 'ӊөӎє' }];
+
+    function loadTab(tabId) {
+        const tab = tabs.find(t => t.id === tabId);
+        if (!tab) return;
+        activeTabId = tabId;
+        if (tab.url && tab.url.trim() !== '') {
+            homePanel.style.display = 'none';
+            browserFrame.style.display = 'block';
+            const proxyUrl = getEncodedProxyUrl(tab.url);
+            if (proxyUrl) {
+                browserFrame.src = proxyUrl;
+            } else {
+                browserFrame.src = "about:blank";
+                console.warn("Invalid proxy url for", tab.url);
+            }
+            urlInputElem.value = tab.url;
+        } else {
+            browserFrame.style.display = 'none';
+            homePanel.style.display = 'flex';
+            browserFrame.src = 'about:blank';
+            urlInputElem.value = '';
+        }
+        updateTabsUI();
+    }
+
+    function updateTabsUI() {
+        const existing = document.querySelectorAll('.tab:not([data-addbtn])');
+        existing.forEach(el => el.remove());
+        tabs.forEach(tab => {
+            const el = document.createElement('div');
+            el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+            const titleSpan = document.createElement('span');
+            let name = tab.title || 'tab';
+            if (name.length > 18) name = name.slice(0, 15) + '..';
+            titleSpan.innerText = name;
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'close';
+            closeSpan.innerHTML = '×';
+            el.appendChild(titleSpan);
+            el.appendChild(closeSpan);
+            el.onclick = (e) => {
+                if (e.target === closeSpan) return;
+                loadTab(tab.id);
+            };
+            closeSpan.onclick = (e) => {
+                e.stopPropagation();
+                if (tabs.length === 1) {
+                    tabs[0].url = '';
+                    tabs[0].title = 'ӊөӎє';
+                    loadTab(0);
+                    return;
+                }
+                tabs = tabs.filter(t => t.id !== tab.id);
+                if (activeTabId === tab.id) {
+                    loadTab(tabs[0].id);
+                } else {
+                    updateTabsUI();
+                }
+            };
+            tabsContainer.insertBefore(el, addTabBtn);
+        });
+    }
+
+    function createNewTab() {
+        const id = Date.now();
+        tabs.push({ id, url: '', title: 'ҋєѡ ꚍдб' });
+        loadTab(id);
+    }
+
+    function navigateTo(raw) {
+        if (!requireProxy()) return;
+        const url = normalizeUrl(raw);
+        if (!url) return;
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (!tab) return;
+        tab.url = url;
+        try {
+            const host = new URL(url).hostname;
+            tab.title = host || 'page';
+        } catch {
+            tab.title = url.slice(0, 20);
+        }
+        loadTab(activeTabId);
+    }
+
+    function reloadCurrent() {
+        if (!requireProxy()) return;
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (!tab || !tab.url) return;
+        const proxyUrl = getEncodedProxyUrl(tab.url);
+        if (proxyUrl) browserFrame.src = proxyUrl;
+    }
+
+    addTabBtn.onclick = createNewTab;
+    document.getElementById('goBtn').onclick = () => navigateTo(urlInputElem.value);
+    urlInputElem.addEventListener('keydown', (e) => { if (e.key === 'Enter') navigateTo(urlInputElem.value); });
+    document.getElementById('reloadBtn').onclick = reloadCurrent;
+    document.querySelectorAll('.bookmark-item').forEach(el => {
+        el.onclick = () => navigateTo(el.dataset.url);
+    });
+
+    // Settings and reset logic
+    const settingsModal = document.getElementById('settings');
+    document.getElementById('settingsNavBtn').onclick = () => { settingsModal.style.display = 'flex'; };
+    document.getElementById('closeSettingsBtn').onclick = () => { settingsModal.style.display = 'none'; };
+    document.getElementById('saveSettingsBtn').onclick = async () => {
+        const newWs = document.getElementById('wsInput').value.trim();
+        if (newWs) {
+            localStorage.setItem("websocketURL", newWs);
+            websocketURL = newWs;
+            alert("Proxy URL saved. Reloading proxy...");
+            proxyReady = false;
+            scramjetReady = false;
+            proxyInitPromise = null;
+            await initProxyStack();
+        }
+        settingsModal.style.display = 'none';
+    };
+    document.getElementById('resetAllBtn').onclick = () => {
+        localStorage.removeItem("websocketURL");
+        websocketURL = DEFAULT_WS;
+        document.getElementById('wsInput').value = DEFAULT_WS;
+        alert("Reset to default proxy. Reloading...");
+        proxyReady = false;
+        scramjetReady = false;
+        proxyInitPromise = null;
+        initProxyStack().catch(console.warn);
+    };
+ 
+
+    // Initialize proxy and load home tab
+    (async () => {
+        await initProxyStack();
+        loadTab(0);
+    })();
+</script>
+</body>
+</html>

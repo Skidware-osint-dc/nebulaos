@@ -1,0 +1,171 @@
+<!DOCTYPE
+  <section>
+    <h2>Your own apps &amp; games</h2>
+    <p class="lead">Drop a single-file HTML file into <code>apps/</code> or <code>games/</code> and rebuild — or import one at runtime from the App Store. Metadata comes from <code>nebula-*</code> meta tags.</p>
+    <div class="grid">
+      <figure><img src="screenshots/36-bundled-game.png" alt="Bundled Minesweeper game"><figcaption><b>Mines</b><span class="tag done">verified</span>A 9 KB game bundled by <code>build.py</code>, running in its own window</figcaption></figure>
+      <figure><img src="screenshots/37-bundled-app.png" alt="Bundled System Monitor"><figcaption><b>System Monitor</b><span class="tag done">verified</span>Live FPS/heap graphs, open windows, engine + transport + wisp health</figcaption></figure>
+      <figure><img src="screenshots/38-imported-game.png" alt="Import dialog"><figcaption><b>Import HTML app</b><span class="tag done">verified</span>File picker → parsed metadata → new window, stored in localStorage</figcaption></figure>
+      <figure><img src="screenshots/39-starter-app.png" alt="Starter template"><figcaption><b>samples/starter.html</b>Template with theme sync and the shell API</figcaption></figure>
+      <figure><img src="screenshots/40-linked-app.png" alt="A large app loaded from a URL"><figcaption><b>Large apps are linked</b><span class="tag done">verified</span>Over 180 KB stays out of the single file and loads from <code>dist/apps/</code></figcaption></figure>
+      <figure><img src="screenshots/41-svg-bundled-app.png" alt="Bundled game inside the packed SVG"><figcaption><b>Inside the packed SVG</b><span class="tag done">verified</span>The single-file SVG boots the desktop <i>and</i> the bundled game</figcaption></figure>
+    </div>
+  </section>
+  <section>
+    <h2>The whole site inside one SVG</h2>
+    <p class="lead"><code>bundle/NebulaOS.svg</code> is an <code>image/svg+xml</code> document that contains the entire desktop — 331 KB of HTML, CSS, JavaScript and wallpapers — base64-packed inside it and booted into a <code>srcdoc</code> iframe at load. <code>tests/test_svg_full.py</code> decodes the payload and hashes it against <code>NebulaOS.html</code>: byte-identical, 36/36 checks.</p>
+    <div class="grid">
+      <figure><img src="screenshots/30-svg-desktop.png" alt="Packed SVG desktop"><figcaption><b>The SVG opens as a desktop</b><span class="tag done">verified</span>The URL ends in <code>.svg</code> and renders a full OS</figcaption></figure>
+      <figure><img src="screenshots/42-svg-bundled-app.png" alt="Bundled app inside the SVG"><figcaption><b>Apps come with it</b><span class="tag done">verified</span>The bundled Mines game runs inside the SVG build</figcaption></figure>
+      <figure><img src="screenshots/43-svg-proxied-page.png" alt="Proxied page inside the SVG"><figcaption><b>Proxying works from the SVG</b><span class="tag done">verified</span>Service worker + transport live, <code>200 via mux</code> in ~110 ms</figcaption></figure>
+      <figure><img src="screenshots/44-inline-xhtml-test.png" alt="Raw inline XHTML in an SVG"><figcaption><b>Why it is packed, not inlined</b><span class="tag warn">measured</span>Raw XHTML in <code>foreignObject</code> works — until <code>innerHTML</code> sees an unclosed tag</figcaption></figure>
+      <figure><img src="screenshots/45-svg-firefox.png" alt="SVG in Firefox"><figcaption><b>Firefox + SVG</b><span class="tag warn">browser limit</span>Desktop runs; Firefox won't activate a service worker there, so the app points at the HTML build</figcaption></figure>
+      <figure><img src="screenshots/46-sandboxed-preview.png" alt="Desktop inside a sandboxed iframe"><figcaption><b>Sandboxed preview</b><span class="tag done">verified</span>Boots even inside <code>sandbox="allow-scripts"</code> (no proxy, as expected)</figcaption></figure>
+    </div>
+  </section>
+  <section>
+    <h2>Desktop icons</h2>
+    <p class="lead">Shortcuts on the grid — drag them, rename them, give them any emoji, or point one at a website. Positions are stored in settings and the layout keeps out of the dock's way.</p>
+    <div class="grid">
+      <figure><img src="screenshots/50-desktop-icons.png" alt="Desktop icons"><figcaption><b>Shortcuts on the desktop</b><span class="tag done">verified</span>Seeded from the dock on first boot, then fully editable</figcaption></figure>
+      <figure><img src="screenshots/54-icons-menu.png" alt="Icon context menu"><figcaption><b>Multi-select + icon menu</b><span class="tag done">verified</span>Open · pin · rename · change icon · remove N shortcuts</figcaption></figure>
+      <figure><img src="screenshots/53-icons-marquee.png" alt="Rubber-band selection"><figcaption><b>Rubber-band selection</b><span class="tag done">verified</span>Drag on empty desktop to select a group</figcaption></figure>
+      <figure><img src="screenshots/55-icons-new-shortcut.png" alt="New shortcut dialog"><figcaption><b>New shortcut</b>An installed app — or a URL that opens proxied</figcaption></figure>
+      <figure><img src="screenshots/56-icons-picker.png" alt="Icon picker"><figcaption><b>Icon picker</b>40 emoji or any character you like</figcaption></figure>
+      <figure><img src="screenshots/57-icons-desktop-menu.png" alt="Desktop context menu"><figcaption><b>Desktop menu</b>Shortcuts merged with the shell's own options</figcaption></figure>
+    </div>
+  </section>
+
+
+ html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NebulaOS — screenshot gallery</title>
+<style>
+  :root {
+    --bg:#080a12; --panel:rgba(22,26,40,.72); --line:rgba(255,255,255,.1);
+    --text:#eef2ff; --dim:rgba(238,242,255,.62); --accent:#7ea6ff; --accent2:#b78cff;
+    --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(126,166,255,.28), transparent 60%),
+      radial-gradient(1000px 640px at 92% 6%, rgba(183,140,255,.22), transparent 62%),
+      linear-gradient(160deg,#101426 0%,#080a12 55%,#04050a 100%);
+    color:var(--text);font-family:var(--font);line-height:1.55;min-height:100vh}
+  .wrap{max-width:1220px;margin:0 auto;padding:52px 22px 90px}
+  header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:10px}
+  .logo{width:74px;height:74px;flex:none}
+  h1{font-size:38px;font-weight:800;letter-spacing:-.5px}
+  h1 span{background:linear-gradient(100deg,var(--accent),var(--accent2),#5ee7ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:15px;max-width:74ch}
+  .meta{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0 40px}
+  .pill{padding:6px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:12.5px;color:var(--dim);backdrop-filter:blur(10px)}
+  .pill b{color:var(--text)}
+  h2{font-size:20px;font-weight:700;margin:52px 0 6px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:7px;height:22px;border-radius:4px;background:linear-gradient(var(--accent),var(--accent2))}
+  .note{color:var(--dim);font-size:13.5px;margin-bottom:18px;max-width:88ch}
+  .grid{display:grid;gap:20px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+  figure{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:0 20px 48px rgba(0,0,0,.5);backdrop-filter:blur(14px);transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
+  figure:hover{transform:translateY(-3px);box-shadow:0 26px 60px rgba(0,0,0,.62)}
+  figure img{display:block;width:100%;height:auto;background:#0b0d16}
+  figcaption{padding:12px 15px;font-size:13px;color:var(--dim);display:flex;gap:9px;align-items:center;border-top:1px solid var(--line)}
+  figcaption b{color:var(--text);font-weight:600}
+  .tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;border-radius:999px;
+    background:rgba(126,166,255,.16);color:var(--accent);font-weight:700}
+  .tag.done{background:rgba(63,196,138,.16);color:#4dd39b}
+  .tag.warn{background:rgba(224,161,42,.18);color:#e8b34a}
+  footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between}
+  code{background:rgba(255,255,255,.08);padding:2px 7px;border-radius:6px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 96 96" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8fb3ff"/><stop offset=".5" stop-color="#b78cff"/><stop offset="1" stop-color="#5ee7ff"/>
+      </linearGradient></defs>
+      <circle cx="48" cy="48" r="30" fill="none" stroke="url(#g)" stroke-width="4"/>
+      <ellipse cx="48" cy="48" rx="44" ry="16" fill="none" stroke="url(#g)" stroke-width="3" opacity=".75" transform="rotate(-22 48 48)"/>
+      <circle cx="48" cy="48" r="12" fill="url(#g)"/>
+      <circle cx="83" cy="30" r="4.5" fill="#5ee7ff"/><circle cx="13" cy="64" r="3.2" fill="#b78cff"/>
+    </svg>
+    <div>
+      <h1>Nebula<span>OS</span></h1>
+      <div class="sub">A glass Linux-style desktop in a single SVG/HTML file, with a real proxied browser
+      (Ultraviolet · Scramjet · Scramjet v2 over Epoxy or libcurl) and a working Discord tab.</div>
+    </div>
+  </header>
+
+  <div class="meta">
+    <span class="pill"><b>1.0.0</b> “Nebula”</span>
+    <span class="pill">single file · <b>395 KB</b> SVG</span>
+    <span class="pill">+ <b>13 KB</b> service worker</span>
+    <span class="pill">3 engines × 2 transports × <b>6/6 verified</b></span>
+    <span class="pill">20/20 end-to-end checks</span>
+  </div>
+
+  <h2>Desktop &amp; shell</h2>
+  <div class="note">Top bar with quick-launch <b>Browser · Apps · Games · Discord</b> buttons, live proxy status,
+  clock/calendar, theme picker, cloak toggle and session menu. Left dock, glass windows, snap layouts.</div>
+  <div class="grid g2">
+    <figure><img src="screenshots/01-desktop.png" alt="NebulaOS desktop"><figcaption><b>Desktop</b><span class="tag done">verified</span>Midnight theme, gradient wallpaper, dock on the left</figcaption></figure>
+    <figure><img src="screenshots/02-app-grid.png" alt="App grid"><figcaption><b>App grid</b> <span class="tag">Ctrl+Space</span>Fuzzy search across apps, games and commands</figcaption></figure>
+    <figure><img src="screenshots/07-games.png" alt="Games"><figcaption><b>Games</b><span class="tag done">verified</span>2048, Snake, Tic-Tac-Toe, Memory — offline</figcaption></figure>
+    <figure><img src="screenshots/23-power-menu.png" alt="Session menu"><figcaption><b>Session menu</b>Lock · restart · close tab (anti-close aware) · cloak · blob</figcaption></figure>
+  </div>
+
+  <h2>Browser &amp; proxying</h2>
+  <div class="note">Every engine × transport combination was verified against a self-hosted Wisp relay,
+  loading real pages (<code>example.com</code>, Wikipedia) inside the in-app browser.</div>
+  <div class="grid g2">
+    <figure><img src="screenshots/05-browser-proxied.png" alt="Wikipedia through Scramjet v2"><figcaption><b>Wikipedia via Scramjet v2 + libcurl</b><span class="tag done">verified</span>Real URL in the omnibox, tabs, bookmarks</figcaption></figure>
+    <figure><img src="screenshots/30-svg-desktop.png" alt="Packed SVG running"><figcaption><b>The packed SVG running</b><span class="tag done">verified</span>The single-file SVG boots the whole OS and a proxied page</figcaption></figure>
+    <figure><img src="screenshots/06-discord.png" alt="Discord login page"><figcaption><b>Discord login through the proxy</b><span class="tag done">verified</span>Email/password, QR login and passkey prompt all render</figcaption></figure>
+    <figure><img src="screenshots/12-diagnostics.png" alt="Diagnostics"><figcaption><b>Connection diagnostics</b>Service worker · transport · Wisp · proxied fetch, with fixes</figcaption></figure>
+    <figure><img src="screenshots/33-discord-connecting.png" alt="Discord boot progress"><figcaption><b>Discord boot progress</b>Live stage + elapsed time while the heavy bundle loads</figcaption></figure>
+    <figure><img src="screenshots/32-blob-mode.png" alt="Blob mode"><figcaption><b>Blob mode</b><span class="tag warn">by design</span>Runs from a <code>blob:</code> URL; return with the bar chip</figcaption></figure>
+  </div>
+
+  <h2>Settings</h2>
+  <div class="note">Proxy engine, transport, Wisp relay, search provider, privacy and themes — the settings you asked for, each with live status.</div>
+  <div class="grid g3">
+    <figure><img src="screenshots/10-settings-proxy.png" alt="Proxy settings"><figcaption><b>Proxy</b>Ultraviolet · Scramjet v2 · Scramjet + Epoxy/libcurl + Wisp</figcaption></figure>
+    <figure><img src="screenshots/10-settings-appearance.png" alt="Appearance"><figcaption><b>Appearance</b>Themes, wallpapers, dock, motion</figcaption></figure>
+    <figure><img src="screenshots/10-settings-privacy.png" alt="Privacy"><figcaption><b>Privacy</b>Anti-close · about:blank · blob mode</figcaption></figure>
+  </div>
+
+  <h2>Themes</h2>
+  <div class="note">Each theme restyles the entire shell <i>and</i> the wallpaper gradient.</div>
+  <div class="grid g3">
+    <figure><img src="screenshots/20-theme-crimson.png" alt="Crimson"><figcaption><b>Crimson</b></figcaption></figure>
+    <figure><img src="screenshots/20-theme-terracotta.png" alt="Terracotta"><figcaption><b>Terracotta</b></figcaption></figure>
+    <figure><img src="screenshots/20-theme-marigold.png" alt="Marigold"><figcaption><b>Marigold</b></figcaption></figure>
+    <figure><img src="screenshots/20-theme-emerald.png" alt="Emerald"><figcaption><b>Emerald</b></figcaption></figure>
+    <figure><img src="screenshots/20-theme-aqua.png" alt="Aqua"><figcaption><b>Aqua</b></figcaption></figure>
+    <figure><img src="screenshots/20-theme-glacier.png" alt="Glacier"><figcaption><b>Glacier</b> (light)</figcaption></figure>
+    <figure><img src="screenshots/20-theme-midnight.png" alt="Midnight"><figcaption><b>Midnight</b> (default)</figcaption></figure>
+    <figure><img src="screenshots/20-theme-graphite.png" alt="Graphite"><figcaption><b>Graphite</b></figcaption></figure>
+    <figure><img src="screenshots/22-dock-bottom.png" alt="Aurora wallpaper, dock bottom"><figcaption><b>Aurora wallpaper</b>, dock on the bottom</figcaption></figure>
+  </div>
+
+  <h2>Apps</h2>
+  <div class="grid g3">
+    <figure><img src="screenshots/08-files-terminal.png" alt="Files and Terminal"><figcaption><b>Files + Terminal</b>Virtual filesystem and a real command line</figcaption></figure>
+    <figure><img src="screenshots/09-paint.png" alt="Paint"><figcaption><b>Paint</b>Brushes, colours, PNG export</figcaption></figure>
+    <figure><img src="screenshots/11-app-store.png" alt="App Store"><figcaption><b>App Store</b>Built-ins plus <b>Import HTML app</b></figcaption></figure>
+  </div>
+
+  <footer>
+    <span>NebulaOS 1.0.0 · single-file desktop · Ultraviolet + Scramjet on Wisp</span>
+    <span>Upload <code>NebulaOS.svg</code>, <code>index.html</code> and <code>nebula.sw.js</code> to the same jsDelivr folder.</span>
+  </footer>
+</div>
+</body>
+</html>

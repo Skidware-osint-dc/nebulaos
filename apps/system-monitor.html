@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="nebula-name" content="System Monitor">
+<meta name="nebula-icon" content="📈">
+<meta name="nebula-kind" content="app">
+<meta name="nebula-description" content="Live frame-rate and heap graphs, the open window list and proxy health, straight from the NebulaOS shell API.">
+<meta name="color-scheme" content="dark light">
+<title>System Monitor</title>
+<style>
+  :root{
+    --bg:#0f1116;--panel:#171a22;--panel2:#1d212b;--text:#e9edf7;--dim:#98a1b6;
+    --line:rgba(255,255,255,.09);--accent:#6c8cff;--ok:#3fc48a;--warn:#e0a12a;--bad:#e0455f;
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f2f4f9;--panel:#fff;--panel2:#f7f9fd;--text:#131a26;--dim:#5c6579;--line:rgba(0,0,0,.1)}
+  }
+  /* explicit attribute wins over the media query when NebulaOS tells us the theme */
+  html[data-app-theme="dark"]{--bg:--bg:#0f1116;--panel:#171a22;--panel2:#1d212b;--text:#e9edf7;--dim:#98a1b6;--line:rgba(255,255,255,.09)}
+  html[data-app-theme="light"]{--bg:--bg:#f2f4f9;--panel:#fff;--panel2:#f7f9fd;--text:#131a26;--dim:#5c6579;--line:rgba(0,0,0,.1)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);padding:16px;display:flex;flex-direction:column;gap:14px;min-height:100%}
+  header{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:750;font-size:15px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#9db2ff);display:grid;place-items:center;font-size:14px}
+  .spacer{flex:1}
+  .chip{padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:600;background:rgba(108,140,255,.16);color:var(--accent)}
+  .chip.ok{background:rgba(63,196,138,.16);color:var(--ok)}
+  .chip.bad{background:rgba(224,69,95,.16);color:var(--bad)}
+  .chip.warn{background:rgba(224,161,42,.18);color:var(--warn)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:700;margin-bottom:9px}
+  .big{font-size:26px;font-weight:750;font-variant-numeric:tabular-nums;line-height:1.15}
+  .sub{font-size:11.5px;color:var(--dim);margin-top:4px}
+  canvas{width:100%;height:64px;display:block}
+  .rows{display:flex;flex-direction:column;gap:7px;font-size:12.5px}
+  .row{display:flex;align-items:center;gap:9px}
+  .row .k{color:var(--dim);min-width:88px}
+  .row .v{margin-left:auto;font-variant-numeric:tabular-nums;text-align:right;word-break:break-all}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)} .dot.bad{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .dot.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .wlist{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto}
+  .w{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12.5px}
+  .w .badge{font-size:10px;padding:2px 7px;border-radius:999px;background:rgba(108,140,255,.16);color:var(--accent);font-weight:700}
+  .w .badge.f{background:rgba(63,196,138,.18);color:var(--ok)}
+  .w .badge.m{background:rgba(224,161,42,.18);color:var(--warn)}
+  button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:10px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+  button:hover{background:var(--panel2)} button.primary{background:var(--accent);border-color:transparent;color:#fff}
+  .bar{display:flex;gap:9px;flex-wrap:wrap}
+  .legend{display:flex;gap:12px;font-size:11px;color:var(--dim);margin-top:6px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="dot">📈</span> System Monitor</div>
+    <span class="chip" id="host">standalone</span>
+    <div class="spacer"></div>
+    <span class="chip ok" id="uptime">0s uptime</span>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Frame rate</h2>
+      <div class="big"><span id="fps">--</span> <span style="font-size:13px;color:var(--dim)">fps</span></div>
+      <div class="sub" id="frame-ms">measuring…</div>
+      <canvas id="c-fps"></canvas>
+    </div>
+    <div class="card">
+      <h2>JS heap</h2>
+      <div class="big"><span id="heap">--</span> <span style="font-size:13px;color:var(--dim)">MB</span></div>
+      <div class="sub" id="heap-sub">not exposed by this browser</div>
+      <canvas id="c-heap"></canvas>
+    </div>
+    <div class="card">
+      <h2>NebulaOS session</h2>
+      <div class="rows">
+        <div class="row"><span class="k">Windows</span><span class="v" id="win-count">—</span></div>
+        <div class="row"><span class="k">Engine</span><span class="v" id="engine">—</span></div>
+        <div class="row"><span class="k">Transport</span><span class="v" id="transport">—</span></div>
+        <div class="row"><span class="k">Theme</span><span class="v" id="theme">—</span></div>
+        <div class="row"><span class="k">Storage</span><span class="v" id="storage">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Proxy health</h2>
+      <div class="rows">
+        <div class="row"><span class="dot" id="d-sw"></span><span class="k">Worker</span><span class="v" id="v-sw">—</span></div>
+        <div class="row"><span class="dot" id="d-tr"></span><span class="k">Transport</span><span class="v" id="v-tr">—</span></div>
+        <div class="row"><span class="dot" id="d-wisp"></span><span class="k">Wisp</span><span class="v" id="v-wisp">—</span></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--ok)"></i>ready</span><span><i style="background:var(--warn)"></i>unknown</span><span><i style="background:var(--bad)"></i>failing</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Open windows</h2>
+    <div class="wlist" id="wins"><div class="sub">No NebulaOS host detected — open this app from the desktop to see live window data.</div></div>
+  </div>
+
+  <div class="bar">
+    <button class="primary" id="run-diag">Run proxy diagnostics</button>
+    <button id="open-settings">Open Settings</button>
+    <button id="cycle-theme">Cycle theme</button>
+    <button id="reload-host">Reload desktop</button>
+  </div>
+
+<script>
+  /* NebulaOS integration: follow the desktop theme and expose the shell API.
+     Standalone (opened as a plain file) this falls back to the OS preference. */
+  (() => {
+    const root = document.documentElement;
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    const apply = () => {
+      let dark = null;
+      try {
+        const host = window.parent !== window ? window.parent : null;
+        if (host && host.Nebula && host.document.body) dark = host.document.body.classList.contains("theme-dark");
+      } catch {}
+      if (dark === null) dark = !matchMedia("(prefers-color-scheme: light)").matches;
+      root.dataset.appTheme = dark ? "dark" : "light";
+      if (meta) meta.setAttribute("content", dark ? "dark" : "light");
+    };
+    apply();
+    try { window.parent.Nebula.bus.on("theme", apply); } catch {}
+    addEventListener("focus", apply);
+    setInterval(apply, 2000);
+  })();
+(() => {
+  const host = (() => { try { return (window.parent && window.parent !== window && window.parent.Nebula) || null; } catch { return null; } })();
+  const el = (id) => document.getElementById(id);
+  const start = Date.now();
+  const fpsHist = [], heapHist = [];
+  let frames = 0, lastFpsT = performance.now(), lastFrameT = performance.now(), lastFrameMs = 0;
+
+  /* ---- draw a sparkline ---- */
+  function draw(canvas, data, color, min = 0, max = null) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = canvas.clientWidth * dpr, h = canvas.clientHeight * dpr;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    if (data.length < 2) return;
+    const hi = max == null ? Math.max(...data, 1) * 1.15 : max;
+    const lo = min;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo || 1)) * h;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, color + "55"); grad.addColorStop(1, color + "00");
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo || 1)) * h;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6 * dpr; ctx.stroke();
+  }
+
+  /* ---- frame loop ---- */
+  function tick(now) {
+    lastFrameMs = now - lastFrameT; lastFrameT = now;
+    frames++;
+    if (now - lastFpsT >= 500) {
+      const fps = Math.round((frames * 1000) / (now - lastFpsT));
+      frames = 0; lastFpsT = now;
+      fpsHist.push(fps); if (fpsHist.length > 60) fpsHist.shift();
+      el("fps").textContent = fps;
+      el("frame-ms").textContent = `last frame ${lastFrameMs.toFixed(1)} ms · budget 16.7 ms`;
+      draw(el("c-fps"), fpsHist, "#6c8cff", 0, 120);
+      if (performance.memory) {
+        const mb = performance.memory.usedJSHeapSize / 1048576;
+        heapHist.push(mb); if (heapHist.length > 60) heapHist.shift();
+        el("heap").textContent = mb.toFixed(1);
+        el("heap-sub").textContent = `limit ${(performance.memory.jsHeapSizeLimit / 1048576) | 0} MB · ${(performance.memory.totalJSHeapSize / 1048576).toFixed(0)} MB allocated`;
+        draw(el("c-heap"), heapHist, "#3fc48a", Math.min(...heapHist) * .9, Math.max(...heapHist, 1) * 1.05);
+      }
+      el("uptime").textContent = Math.floor((Date.now() - start) / 1000) + "s uptime";
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  /* ---- host integration ---- */
+  function sync() {
+    el("uptime").textContent = Math.floor((Date.now() - start) / 1000) + "s uptime";
+    if (!host) return;
+    const st = host.state || {};
+    const P = host.Proxy || {};
+    el("host").textContent = "inside NebulaOS";
+    el("host").className = "chip ok";
+    el("engine").textContent = (host.ENGINES?.[st.engine]?.name) || st.engine || "—";
+    el("transport").textContent = (host.TRANSPORTS?.[st.transport]?.name) || st.transport || "—";
+    el("theme").textContent = st.theme || "—";
+    try {
+      let n = 0; for (const k of Object.keys(localStorage)) n += (localStorage[k] || "").length;
+      el("storage").textContent = (n / 1024).toFixed(1) + " KB in localStorage";
+    } catch { el("storage").textContent = "blocked"; }
+
+    const wins = [...(host.wins?.values?.() || [])];
+    el("win-count").textContent = wins.length;
+    const box = el("wins");
+    box.innerHTML = "";
+    if (!wins.length) box.innerHTML = '<div class="sub">No windows open.</div>';
+    for (const w of wins) {
+      const row = document.createElement("div");
+      row.className = "w";
+      const badge = w.state === "minimized" ? "m" : (host.focusWin?.() === w ? "f" : "");
+      row.innerHTML = `<span>${w.appId === "browser" ? "🌐" : w.appId === "terminal" ? "⌨️" : "🪟"}</span>
+        <span>${w.title}</span><span class="spacer" style="flex:1"></span>
+        <span class="badge ${badge}">${w.state === "minimized" ? "minimised" : host.focusWin?.() === w ? "focused" : "open"}</span>`;
+      row.style.cursor = "pointer";
+      row.onclick = () => (w.state === "minimized" ? w.restore() : w.focus());
+      box.append(row);
+    }
+
+    const setDot = (id, v, label) => { const d = el(id); d.className = "dot " + v; el(label).textContent = v === "ok" ? "ready" : v === "bad" ? "failing" : "unknown"; };
+    const S = P.status || {};
+    setDot("d-sw", P.swReady ? "ok" : S.sw === "bad" ? "bad" : "warn", "v-sw");
+    setDot("d-tr", S.transport === "ok" ? "ok" : S.transport === "unknown" ? "warn" : "bad", "v-tr");
+    setDot("d-wisp", S.wisp === "ok" ? "ok" : S.wisp === "unknown" ? "warn" : "bad", "v-wisp");
+    el("v-sw").textContent = P.swReady ? "registered" : "inactive";
+    el("v-tr").textContent = P.transportName ? String(P.transportName).slice(-26) : "not set";
+    el("v-wisp").textContent = String(st.wisp || "").replace(/^wss?:\/\//, "").slice(0, 26) || "—";
+  }
+  setInterval(sync, 1000);
+  sync();
+
+  el("run-diag").onclick = () => host?.Proxy?.probeAll(true);
+  el("open-settings").onclick = () => host?.Settings?.open ? host.Settings.open("proxy") : alert("Open this app from inside NebulaOS for full integration.");
+  el("cycle-theme").onclick = () => host?.cycleTheme ? host.cycleTheme() : alert("Open this app from inside NebulaOS for full integration.");
+  el("reload-host").onclick = () => host ? host.appLocation && location.reload() : location.reload();
+})();
+</script>
+</body>
+</html>

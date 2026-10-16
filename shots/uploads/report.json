@@ -1,0 +1,22 @@
+[
+ {
+  "file": "studify_v1.html",
+  "bytes": 12540820,
+  "title": "Studify \u2014 Play something.",
+  "dom": {
+   "nodes": 709,
+   "text": 1055,
+   "buttons": 91,
+   "inputs": 1,
+   "canvases": 1,
+   "iframes": 0,
+   "visible": 628
+  },
+  "errors": [
+   "A bad HTTP response code (404) was received when fetching the script."
+  ],
+  "console": [],
+  "failed_requests": [],
+  "http_errors": []
+ }
+]
