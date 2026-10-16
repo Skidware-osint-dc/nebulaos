@@ -85,9 +85,17 @@ const Nebula = (() => {
    * They are community servers: they can rate-limit, and they can see the
    * traffic that passes through them, so self-hosting is the private option. */
   const WISP_PRESETS = [
-    { name: "Fly.io relay", url: "wss://bare-server.fly.dev/wisp/" },
-    { name: "Koyeb relay", url: "wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/" },
+    { name: "Anura", url: "wss://anura.pro/" },
     { name: "Mercury Workshop", url: "wss://wisp.mercurywork.shop/" },
+    { name: "Fly.io relay", url: "wss://bare-server.fly.dev/wisp/" },
+    { name: "Phantom", url: "wss://phantom.lol/wisp/" },
+    { name: "Lichology", url: "wss://lichology.com/wisp/" },
+    { name: "Mages", url: "wss://mages.io/wisp/" },
+    { name: "Swanndvr", url: "wss://shadow-3.swanndvr.net/wisp/" },
+    { name: "Go Into Space", url: "wss://gointospace.app/wisp/" },
+    { name: "Unified Wisp", url: "wss://unified-wisp-epoxy.fly.dev/wisp/" },
+    { name: "Terbium", url: "wss://wisp.terbiumon.top/wisp/" },
+    { name: "Koyeb", url: "wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/" },
     { name: "Local (self-hosted)", url: "ws://localhost:4000/" },
   ];
 
@@ -114,6 +122,7 @@ const Nebula = (() => {
     wispPinned: false,
     proxyTimeout: 25,
     browserSkin: "glass",        /* "glass" (default) or "pyro" — see Browser.build */
+    motion: true,                /* UI + wallpaper animation; off on low-end machines */
     desktopIcons: null,          /* seeded on first boot; [{id, appId|url, name, emoji, c, r}] */
     iconsHidden: false,
     iconGrid: true,              /* snap to grid (false = free placement, kept for convenience) */
@@ -169,6 +178,11 @@ const Nebula = (() => {
     document.body.dataset.theme = t.id;
     document.body.classList.toggle("theme-dark", !!t.dark);
     document.body.dataset.wall = state.wallpaper;
+    /* default the animation flag from the OS preference the first time */
+    if (state.motion === undefined || state.motion === null) {
+      state.motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+    document.body.dataset.motion = state.motion === false ? "off" : "on";
     document.body.classList.toggle("no-blur", !state.blur);
     document.body.classList.toggle("dock-left", state.dockPos === "left");
     document.body.classList.toggle("dock-bottom", state.dockPos === "bottom");
@@ -1200,6 +1214,19 @@ const Nebula = (() => {
     async fetchText(url, engine = state.engine, timeout = 15000) {
       const target = this.toUrl(url);
       try { await this.registerSW(); } catch {}
+      /* A page only gets the service worker's rewriting once the worker is in
+       * control. Until then a request to the proxied path hits the static host
+       * and comes back 500. In that case go straight through the transport. */
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+        await this.ensureMux();
+        const bm = await this.loadBareMux();
+        const client = new bm.BareClient(this.mux.getInnerPort());
+        const res = await client.fetch(target);
+        return { ok: res.status >= 200 && res.status < 400, status: res.status, text: await res.text(), proxied: target, via: "transport" };
+      }
+      /* the worker can only rewrite a request once the engine + transport are
+       * actually set up, otherwise it answers 500 */
+      try { await this.ensureEngine(engine); } catch {}
       const proxied = this.buildUrl(target, engine);
       const ctl = new AbortController();
       const t = setTimeout(() => ctl.abort(), timeout);
@@ -1207,6 +1234,92 @@ const Nebula = (() => {
         const res = await fetch(proxied, { credentials: "omit", signal: ctl.signal });
         return { ok: res.ok, status: res.status, text: await res.text(), proxied };
       } finally { clearTimeout(t); }
+    },
+    /* ==========================================================================
+     *  Network check — works out WHICH layer is broken, not just "proxy bad".
+     *  School filters (ContentKeeper, Cisco Umbrella, GoGuardian) usually allow
+     *  plain HTTPS and block WebSocket upgrades, which looks like "the relay is
+     *  down" from inside the app. This separates the two.
+     * ======================================================================== */
+    async netCheck(loud = true) {
+      const rows = [];
+      const push = (ok, label, detail) => { rows.push({ ok, label, detail }); return ok; };
+      const race = (pr, ms) => Promise.race([pr, new Promise((_, rj) => setTimeout(() => rj(new Error("timed out after " + ms / 1000 + "s")), ms))]);
+      const openWS = (url, ms = 6000) => new Promise((res, rej) => {
+        let ws, done = false;
+        const fin = (ok, why) => { if (done) return; done = true; try { ws && ws.close(); } catch {}; ok ? res(true) : rej(new Error(why)); };
+        try { ws = new WebSocket(url); } catch (e) { return fin(false, "blocked by the browser"); }
+        ws.onopen = () => fin(true);
+        ws.onerror = () => fin(false, "refused or blocked");
+        setTimeout(() => fin(false, "no response"), ms);
+      });
+
+      /* 1 — plain HTTPS off-origin */
+      let httpsOk = false;
+      try {
+        const t0 = performance.now();
+        await race(fetch("https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@v1.0.2/README.md", { mode: "no-cors", cache: "no-store" }), 8000);
+        httpsOk = push(true, "Plain HTTPS", `reached cdn.jsdelivr.net in ${Math.round(performance.now() - t0)} ms`);
+      } catch (e) { push(false, "Plain HTTPS", String(e.message || e)); }
+
+      /* 2 — can this browser open a WebSocket to a neutral host at all? */
+      let wsOk = false, wsWhy = "";
+      for (const ctrl of ["wss://ws.postman-echo.com/raw", "wss://echo.websocket.org/"]) {
+        try { await openWS(ctrl, 7000); wsOk = true; break; }
+        catch (e) { wsWhy = String(e.message || e); }
+      }
+      push(wsOk, "WebSockets (neutral host)", wsOk ? "this browser can open websockets" : `no websocket anywhere — ${wsWhy}`);
+
+      /* 3 — each relay: is the host reachable, does the socket open, does it proxy */
+      let winner = null;
+      for (const pre of WISP_PRESETS.slice(0, 6)) {
+        let host = ""; try { host = new URL(pre.url).host; } catch {}
+        if (pre.url.startsWith("ws://localhost")) continue;
+        let https = false;
+        try { await race(fetch(pre.url.replace(/^ws/, "http"), { mode: "no-cors", cache: "no-store" }), 6000); https = true; } catch {}
+        let opened = false;
+        try { await openWS(pre.url, 6000); opened = true; } catch {}
+        let proxied = false;
+        if (opened) {
+          try {
+            set({ wisp: pre.url }, { silent: true });
+            await race(this.restart(), 8000).catch(() => {});
+            const r = await race(this.probeFetch(), 11000);
+            proxied = !!r.ok;
+            if (proxied && !winner) winner = pre;
+          } catch {}
+        }
+        const state3 = proxied ? "proxies traffic" : opened ? "socket opened, traffic refused" : https ? "socket blocked (HTTPS ok)" : "host unreachable";
+        push(proxied, pre.name, `${host} — ${state3}`);
+      }
+
+      /* 4 — verdict */
+      let verdict, advice;
+      if (winner) {
+        set({ wisp: winner.url }, { silent: true });
+        await this.restart().catch(() => {});
+        verdict = `Working: switched to ${winner.name} (${winner.url})`;
+        advice = "Browsing should work now. The browser is using this relay.";
+        if (loud) toast("Network check", `Relay is working — using <b>${winner.name}</b>.`, "ok", 6000);
+      } else if (!httpsOk) {
+        verdict = "This network is blocking everything, not just the proxy";
+        advice = "Even a plain HTTPS request failed, so the filter is intercepting all traffic. Try a phone hotspot.";
+      } else if (!wsOk) {
+        verdict = "Your network allows HTTPS but blocks WebSockets";
+        advice = "That is exactly what ContentKeeper / Cisco Umbrella do. No public relay can work here — the proxy needs a WebSocket. Options: use a phone hotspot, use the app off-network, or ask IT to allow wss:// to a specific host.";
+      } else {
+        verdict = "WebSockets work, but no relay carried traffic";
+        advice = "Relays are reachable but refusing requests (usually rate-limited or full). Paste your own relay in Settings → Proxy, or run npx wisp-server-node on any machine you control.";
+      }
+      this.lastNetCheck = { at: Date.now(), rows, verdict, advice };
+      if (loud) void dialog({
+        title: "Network check", icon: "wifi", wide: true,
+        msg: `<div style="font-weight:650;margin-bottom:8px">${esc(verdict)}</div>
+              <div style="opacity:.8;margin-bottom:12px">${esc(advice)}</div>` +
+             rows.map((r) => `<div style="display:flex;gap:9px;margin:6px 0"><b style="color:${r.ok ? "#2fa472" : "#e0455f"}">${r.ok ? "✔" : "✘"}</b><span><b>${esc(r.label)}</b><br><span style="opacity:.7">${esc(r.detail)}</span></span></div>`).join(""),
+        buttons: [{ label: "Close", primary: true }, { label: "Open Settings → Proxy", value: "proxy" }],
+      }).then((v) => { if (v === "proxy") Settings.open("proxy"); });
+      return { verdict, advice, rows };
     },
     async probeFetch(engine = state.engine) {
       const target = "https://example.com/";
@@ -1472,6 +1585,11 @@ const Nebula = (() => {
       tl3.innerHTML = `<div><div style="font-weight:650;font-size:13px">24-hour clock</div><div class="faint" style="font-size:11.5px">Show the time in 24-hour format.</div></div>`;
       tl3.append(this.toggle(!state.hour12, (v) => set({ hour12: !v })));
       sect3.append(tl3);
+      sect3.append(el("div", { style: "height:10px" }));
+      const tl4 = el("div", { class: "row", style: "justify-content:space-between;align-items:center;padding:13px 14px;border:1px solid var(--glass-line);border-radius:12px;background:var(--glass-2)" });
+      tl4.innerHTML = `<div><div style="font-weight:650;font-size:13px">Animations</div><div class="faint" style="font-size:11.5px">Moving wallpaper, window and menu motion, hover effects. Turn off on slow machines.</div></div>`;
+      tl4.append(this.toggle(state.motion !== false, (v) => set({ motion: v })));
+      sect3.append(tl4);
       pane.append(sect3);
     },
 
@@ -1556,6 +1674,10 @@ const Nebula = (() => {
       const b2 = el("button", { class: "btn sm" });
       b2.innerHTML = `${icon("bolt", "width:14px;height:14px")} Run full diagnostics`;
       b2.addEventListener("click", () => Proxy.probeAll(true));
+      const bNet = el("button", { class: "btn sm" });
+      bNet.innerHTML = `${icon("wifi", "width:14px;height:14px")} Network check`;
+      bNet.title = "Find out whether it is the relay, the service worker or the network filter";
+      bNet.addEventListener("click", () => Proxy.netCheck(true));
       const b3 = el("button", { class: "btn sm danger" });
       b3.innerHTML = `${icon("trash", "width:14px;height:14px")} Unregister worker`;
       b3.addEventListener("click", async () => {
@@ -1563,7 +1685,7 @@ const Nebula = (() => {
         toast("Service worker removed", "Reload the page to register it again.", "ok");
         this.render();
       });
-      r2.append(b1, b2, b3);
+      r2.append(b1, b2, bNet, b3);
       s4.append(r2);
       pane.append(s4);
     },
