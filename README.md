@@ -43,13 +43,17 @@ your-repo/                 →  https://cdn.jsdelivr.net/gh/USER/REPO@main/
 Open (this build is already online):
 
 ```
-https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@v1.0.1/bundle/NebulaOS.svg    ← packed SVG
-https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@v1.0.1/bundle/index.html      ← HTML build
+https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@latest/bundle/NebulaOS.svg   ← packed SVG
+https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@latest/bundle/index.html    ← HTML build
 ```
 
-Use a **tag** (`@v1.0.1`), not `@main`: jsDelivr caches branches for up to 12 hours, so a fresh
-push to `main` can still be served as the previous build. Tags are cached per version and are
-always correct. `nebula.sw.js` is picked up from the same folder automatically.
+**Use `@latest` or a tag — never `@main`.** jsDelivr caches branch URLs for up to 12 hours, so a
+fresh push to `main` can still be served as the *previous* build (it happened here: the default
+relay stayed dead on `@main` for two pushes). `@latest` resolves to the newest GitHub release and
+tags are cached per version, so both are always correct.
+
+Publishing an update: push, then create a release (new tag) — `@latest` picks it up immediately and
+the old pins keep working. `nebula.sw.js` is picked up from the same folder automatically.
 
 If `nebula.sw.js` is missing, everything still works **except** the proxied browser — the app
 tells you exactly that and offers to run diagnostics.
