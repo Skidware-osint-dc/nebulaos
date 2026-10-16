@@ -1016,6 +1016,82 @@ body[data-theme="pyro"] .bar-btn span, body[data-theme="pyro"] #clock-time { let
 .quantum .q-note code { color: #7de3e3; }
 .quantum .q-surl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ==========================================================================
+ *  Motion — animated wallpaper, drifting orbs, UI transitions.
+ *  Everything here is transform/opacity only (GPU friendly) and is switched
+ *  off wholesale by body[data-motion="off"] or prefers-reduced-motion.
+ * ======================================================================== */
+body[data-motion="on"] #wallpaper::before {
+  content: ""; position: absolute; inset: -30%; pointer-events: none; opacity: 0.55;
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, .10), transparent 70%) 12% 22% / 46vw 46vw no-repeat,
+    radial-gradient(closest-side, var(--accent-soft), transparent 72%) 78% 34% / 52vw 52vw no-repeat,
+    radial-gradient(closest-side, rgba(255, 255, 255, .07), transparent 70%) 42% 82% / 40vw 40vw no-repeat;
+  animation: orb-drift 46s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes orb-drift {
+  0%   { transform: translate3d(-2%, -1%, 0) scale(1); }
+  50%  { transform: translate3d(3%, 2.5%, 0) scale(1.08); }
+  100% { transform: translate3d(-1.5%, 3%, 0) scale(1.03); }
+}
+body[data-motion="on"] #wallpaper::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .055) 50%, transparent 58%);
+  background-size: 300% 300%;
+  animation: sheen 22s linear infinite;
+}
+@keyframes sheen { from { background-position: 0% 0%; } to { background-position: 300% 0%; } }
+
+/* windows */
+body[data-motion="on"] .window { animation: win-in 200ms var(--t-spring); }
+@keyframes win-in {
+  from { opacity: 0; transform: scale(.97) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+body[data-motion="on"] .window.closing { animation: win-out 150ms ease forwards; }
+@keyframes win-out { to { opacity: 0; transform: scale(.97) translateY(6px); } }
+
+/* dock + top bar */
+body[data-motion="on"] .dock-item { transition: transform 160ms var(--t-spring), background var(--t-fast); }
+body[data-motion="on"] .dock-item:hover { transform: translateY(-4px) scale(1.06); }
+body[data-motion="on"] .bar-btn { transition: background var(--t-fast), color var(--t-fast), transform 140ms ease; }
+body[data-motion="on"] .bar-btn:active { transform: scale(.94); }
+
+/* launcher + web start-page tiles stagger in */
+body[data-motion="on"] .launcher-tile, body[data-motion="on"] .sp-quick .tile, body[data-motion="on"] .pyro-cat {
+  animation: tile-in 260ms var(--t-spring) backwards;
+}
+body[data-motion="on"] .launcher-tile:nth-child(1), body[data-motion="on"] .pyro-cat:nth-child(1) { animation-delay: 0ms; }
+body[data-motion="on"] .launcher-tile:nth-child(2), body[data-motion="on"] .pyro-cat:nth-child(2) { animation-delay: 35ms; }
+body[data-motion="on"] .launcher-tile:nth-child(3), body[data-motion="on"] .pyro-cat:nth-child(3) { animation-delay: 70ms; }
+body[data-motion="on"] .launcher-tile:nth-child(4), body[data-motion="on"] .pyro-cat:nth-child(4) { animation-delay: 105ms; }
+body[data-motion="on"] .launcher-tile:nth-child(5), body[data-motion="on"] .pyro-cat:nth-child(5) { animation-delay: 140ms; }
+body[data-motion="on"] .launcher-tile:nth-child(6), body[data-motion="on"] .pyro-cat:nth-child(6) { animation-delay: 175ms; }
+body[data-motion="on"] .launcher-tile:nth-child(n+7), body[data-motion="on"] .pyro-cat:nth-child(n+7) { animation-delay: 200ms; }
+@keyframes tile-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* menus, toasts, tabs, desktop icons */
+body[data-motion="on"] .ctxmenu { animation: menu-in 130ms ease-out; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+body[data-motion="on"] .toast { animation: toast-in 220ms var(--t-spring); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+body[data-motion="on"] .browser .tab { transition: background var(--t-fast), box-shadow var(--t-fast); }
+body[data-motion="on"] .browser .tabview, body[data-motion="on"] .quantum .q-view { animation: fade 180ms ease; }
+body[data-motion="on"] #icons > * { animation: tile-in 200ms ease backwards; }
+body[data-motion="on"] .icon:hover, body[data-motion="on"] #icons .icon:hover { transform: translateY(-2px); }
+body[data-motion="on"] .settings .pane { animation: fade 160ms ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* opt-out */
+body[data-motion="off"] *, body[data-motion="off"] *::before, body[data-motion="off"] *::after {
+  animation: none !important; transition: none !important;
+}
+body[data-motion="off"] #wallpaper::before, body[data-motion="off"] #wallpaper::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #wallpaper::before, #wallpaper::after { animation: none !important; }
+}
+
 </style>
 </head>
 <body class="theme-dark dock-left" data-theme="midnight" data-wall="gradient">
@@ -1268,9 +1344,17 @@ const Nebula = (() => {
    * They are community servers: they can rate-limit, and they can see the
    * traffic that passes through them, so self-hosting is the private option. */
   const WISP_PRESETS = [
-    { name: "Fly.io relay", url: "wss://bare-server.fly.dev/wisp/" },
-    { name: "Koyeb relay", url: "wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/" },
+    { name: "Anura", url: "wss://anura.pro/" },
     { name: "Mercury Workshop", url: "wss://wisp.mercurywork.shop/" },
+    { name: "Fly.io relay", url: "wss://bare-server.fly.dev/wisp/" },
+    { name: "Phantom", url: "wss://phantom.lol/wisp/" },
+    { name: "Lichology", url: "wss://lichology.com/wisp/" },
+    { name: "Mages", url: "wss://mages.io/wisp/" },
+    { name: "Swanndvr", url: "wss://shadow-3.swanndvr.net/wisp/" },
+    { name: "Go Into Space", url: "wss://gointospace.app/wisp/" },
+    { name: "Unified Wisp", url: "wss://unified-wisp-epoxy.fly.dev/wisp/" },
+    { name: "Terbium", url: "wss://wisp.terbiumon.top/wisp/" },
+    { name: "Koyeb", url: "wss://hurt-agata-liventcord-api-7072e9a6.koyeb.app/" },
     { name: "Local (self-hosted)", url: "ws://localhost:4000/" },
   ];
 
@@ -1297,6 +1381,7 @@ const Nebula = (() => {
     wispPinned: false,
     proxyTimeout: 25,
     browserSkin: "glass",        /* "glass" (default) or "pyro" — see Browser.build */
+    motion: true,                /* UI + wallpaper animation; off on low-end machines */
     desktopIcons: null,          /* seeded on first boot; [{id, appId|url, name, emoji, c, r}] */
     iconsHidden: false,
     iconGrid: true,              /* snap to grid (false = free placement, kept for convenience) */
@@ -1352,6 +1437,11 @@ const Nebula = (() => {
     document.body.dataset.theme = t.id;
     document.body.classList.toggle("theme-dark", !!t.dark);
     document.body.dataset.wall = state.wallpaper;
+    /* default the animation flag from the OS preference the first time */
+    if (state.motion === undefined || state.motion === null) {
+      state.motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+    document.body.dataset.motion = state.motion === false ? "off" : "on";
     document.body.classList.toggle("no-blur", !state.blur);
     document.body.classList.toggle("dock-left", state.dockPos === "left");
     document.body.classList.toggle("dock-bottom", state.dockPos === "bottom");
@@ -2383,6 +2473,19 @@ const Nebula = (() => {
     async fetchText(url, engine = state.engine, timeout = 15000) {
       const target = this.toUrl(url);
       try { await this.registerSW(); } catch {}
+      /* A page only gets the service worker's rewriting once the worker is in
+       * control. Until then a request to the proxied path hits the static host
+       * and comes back 500. In that case go straight through the transport. */
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+        await this.ensureMux();
+        const bm = await this.loadBareMux();
+        const client = new bm.BareClient(this.mux.getInnerPort());
+        const res = await client.fetch(target);
+        return { ok: res.status >= 200 && res.status < 400, status: res.status, text: await res.text(), proxied: target, via: "transport" };
+      }
+      /* the worker can only rewrite a request once the engine + transport are
+       * actually set up, otherwise it answers 500 */
+      try { await this.ensureEngine(engine); } catch {}
       const proxied = this.buildUrl(target, engine);
       const ctl = new AbortController();
       const t = setTimeout(() => ctl.abort(), timeout);
@@ -2390,6 +2493,92 @@ const Nebula = (() => {
         const res = await fetch(proxied, { credentials: "omit", signal: ctl.signal });
         return { ok: res.ok, status: res.status, text: await res.text(), proxied };
       } finally { clearTimeout(t); }
+    },
+    /* ==========================================================================
+     *  Network check — works out WHICH layer is broken, not just "proxy bad".
+     *  School filters (ContentKeeper, Cisco Umbrella, GoGuardian) usually allow
+     *  plain HTTPS and block WebSocket upgrades, which looks like "the relay is
+     *  down" from inside the app. This separates the two.
+     * ======================================================================== */
+    async netCheck(loud = true) {
+      const rows = [];
+      const push = (ok, label, detail) => { rows.push({ ok, label, detail }); return ok; };
+      const race = (pr, ms) => Promise.race([pr, new Promise((_, rj) => setTimeout(() => rj(new Error("timed out after " + ms / 1000 + "s")), ms))]);
+      const openWS = (url, ms = 6000) => new Promise((res, rej) => {
+        let ws, done = false;
+        const fin = (ok, why) => { if (done) return; done = true; try { ws && ws.close(); } catch {}; ok ? res(true) : rej(new Error(why)); };
+        try { ws = new WebSocket(url); } catch (e) { return fin(false, "blocked by the browser"); }
+        ws.onopen = () => fin(true);
+        ws.onerror = () => fin(false, "refused or blocked");
+        setTimeout(() => fin(false, "no response"), ms);
+      });
+
+      /* 1 — plain HTTPS off-origin */
+      let httpsOk = false;
+      try {
+        const t0 = performance.now();
+        await race(fetch("https://cdn.jsdelivr.net/gh/Skidware-osint-dc/nebulaos@v1.0.2/README.md", { mode: "no-cors", cache: "no-store" }), 8000);
+        httpsOk = push(true, "Plain HTTPS", `reached cdn.jsdelivr.net in ${Math.round(performance.now() - t0)} ms`);
+      } catch (e) { push(false, "Plain HTTPS", String(e.message || e)); }
+
+      /* 2 — can this browser open a WebSocket to a neutral host at all? */
+      let wsOk = false, wsWhy = "";
+      for (const ctrl of ["wss://ws.postman-echo.com/raw", "wss://echo.websocket.org/"]) {
+        try { await openWS(ctrl, 7000); wsOk = true; break; }
+        catch (e) { wsWhy = String(e.message || e); }
+      }
+      push(wsOk, "WebSockets (neutral host)", wsOk ? "this browser can open websockets" : `no websocket anywhere — ${wsWhy}`);
+
+      /* 3 — each relay: is the host reachable, does the socket open, does it proxy */
+      let winner = null;
+      for (const pre of WISP_PRESETS.slice(0, 6)) {
+        let host = ""; try { host = new URL(pre.url).host; } catch {}
+        if (pre.url.startsWith("ws://localhost")) continue;
+        let https = false;
+        try { await race(fetch(pre.url.replace(/^ws/, "http"), { mode: "no-cors", cache: "no-store" }), 6000); https = true; } catch {}
+        let opened = false;
+        try { await openWS(pre.url, 6000); opened = true; } catch {}
+        let proxied = false;
+        if (opened) {
+          try {
+            set({ wisp: pre.url }, { silent: true });
+            await race(this.restart(), 8000).catch(() => {});
+            const r = await race(this.probeFetch(), 11000);
+            proxied = !!r.ok;
+            if (proxied && !winner) winner = pre;
+          } catch {}
+        }
+        const state3 = proxied ? "proxies traffic" : opened ? "socket opened, traffic refused" : https ? "socket blocked (HTTPS ok)" : "host unreachable";
+        push(proxied, pre.name, `${host} — ${state3}`);
+      }
+
+      /* 4 — verdict */
+      let verdict, advice;
+      if (winner) {
+        set({ wisp: winner.url }, { silent: true });
+        await this.restart().catch(() => {});
+        verdict = `Working: switched to ${winner.name} (${winner.url})`;
+        advice = "Browsing should work now. The browser is using this relay.";
+        if (loud) toast("Network check", `Relay is working — using <b>${winner.name}</b>.`, "ok", 6000);
+      } else if (!httpsOk) {
+        verdict = "This network is blocking everything, not just the proxy";
+        advice = "Even a plain HTTPS request failed, so the filter is intercepting all traffic. Try a phone hotspot.";
+      } else if (!wsOk) {
+        verdict = "Your network allows HTTPS but blocks WebSockets";
+        advice = "That is exactly what ContentKeeper / Cisco Umbrella do. No public relay can work here — the proxy needs a WebSocket. Options: use a phone hotspot, use the app off-network, or ask IT to allow wss:// to a specific host.";
+      } else {
+        verdict = "WebSockets work, but no relay carried traffic";
+        advice = "Relays are reachable but refusing requests (usually rate-limited or full). Paste your own relay in Settings → Proxy, or run npx wisp-server-node on any machine you control.";
+      }
+      this.lastNetCheck = { at: Date.now(), rows, verdict, advice };
+      if (loud) void dialog({
+        title: "Network check", icon: "wifi", wide: true,
+        msg: `<div style="font-weight:650;margin-bottom:8px">${esc(verdict)}</div>
+              <div style="opacity:.8;margin-bottom:12px">${esc(advice)}</div>` +
+             rows.map((r) => `<div style="display:flex;gap:9px;margin:6px 0"><b style="color:${r.ok ? "#2fa472" : "#e0455f"}">${r.ok ? "✔" : "✘"}</b><span><b>${esc(r.label)}</b><br><span style="opacity:.7">${esc(r.detail)}</span></span></div>`).join(""),
+        buttons: [{ label: "Close", primary: true }, { label: "Open Settings → Proxy", value: "proxy" }],
+      }).then((v) => { if (v === "proxy") Settings.open("proxy"); });
+      return { verdict, advice, rows };
     },
     async probeFetch(engine = state.engine) {
       const target = "https://example.com/";
@@ -2655,6 +2844,11 @@ const Nebula = (() => {
       tl3.innerHTML = `<div><div style="font-weight:650;font-size:13px">24-hour clock</div><div class="faint" style="font-size:11.5px">Show the time in 24-hour format.</div></div>`;
       tl3.append(this.toggle(!state.hour12, (v) => set({ hour12: !v })));
       sect3.append(tl3);
+      sect3.append(el("div", { style: "height:10px" }));
+      const tl4 = el("div", { class: "row", style: "justify-content:space-between;align-items:center;padding:13px 14px;border:1px solid var(--glass-line);border-radius:12px;background:var(--glass-2)" });
+      tl4.innerHTML = `<div><div style="font-weight:650;font-size:13px">Animations</div><div class="faint" style="font-size:11.5px">Moving wallpaper, window and menu motion, hover effects. Turn off on slow machines.</div></div>`;
+      tl4.append(this.toggle(state.motion !== false, (v) => set({ motion: v })));
+      sect3.append(tl4);
       pane.append(sect3);
     },
 
@@ -2739,6 +2933,10 @@ const Nebula = (() => {
       const b2 = el("button", { class: "btn sm" });
       b2.innerHTML = `${icon("bolt", "width:14px;height:14px")} Run full diagnostics`;
       b2.addEventListener("click", () => Proxy.probeAll(true));
+      const bNet = el("button", { class: "btn sm" });
+      bNet.innerHTML = `${icon("wifi", "width:14px;height:14px")} Network check`;
+      bNet.title = "Find out whether it is the relay, the service worker or the network filter";
+      bNet.addEventListener("click", () => Proxy.netCheck(true));
       const b3 = el("button", { class: "btn sm danger" });
       b3.innerHTML = `${icon("trash", "width:14px;height:14px")} Unregister worker`;
       b3.addEventListener("click", async () => {
@@ -2746,7 +2944,7 @@ const Nebula = (() => {
         toast("Service worker removed", "Reload the page to register it again.", "ok");
         this.render();
       });
-      r2.append(b1, b2, b3);
+      r2.append(b1, b2, bNet, b3);
       s4.append(r2);
       pane.append(s4);
     },
@@ -5454,6 +5652,7 @@ const Nullset = {
       wrap.append(out, line);
       win.content.append(wrap);
       const print = (html) => { const d = el("div", { html }); out.append(d); out.scrollTop = out.scrollHeight; };
+      const hist = [];   /* command history lives in this closure, not on `this` */
       print(`<span class="t-acc">NebulaOS Terminal ${Nebula.VERSION.os}</span>\nType <span class="t-ok">help</span> for the command list.`);
       const cmds = {
         help: () => `Commands:
@@ -5469,9 +5668,24 @@ const Nullset = {
   <span class="t-ok">proxy</span> [on|off|restart]     manage the service worker
   <span class="t-ok">fetch</span> &lt;url&gt;                proxied HEAD request through the wisp
   <span class="t-ok">open</span> &lt;appId|url&gt;           launch an app or browse
-  <span class="t-ok">ls</span> / <span class="t-ok">cat</span> &lt;path&gt;            virtual files
+  <span class="t-ok">netcheck</span>                 what exactly is blocked on this network
+  <span class="t-ok">wisp</span> <span class="t-ok">test</span>                probe every relay and keep the best
+  <span class="t-ok">probe</span> &lt;url&gt;              fetch any URL through the proxy
+  <span class="t-ok">ls</span> <span class="t-ok">cd</span> <span class="t-ok">cat</span> <span class="t-ok">write</span> <span class="t-ok">mkdir</span> <span class="t-ok">rm</span>  virtual files
+  <span class="t-ok">tree</span> <span class="t-ok">grep</span> &lt;file&gt; &lt;text&gt;  browse and search files
+  <span class="t-ok">apps</span> <span class="t-ok">run</span> &lt;id&gt;             list or launch apps
+  <span class="t-ok">windows</span> <span class="t-ok">focus</span> &lt;n&gt; <span class="t-ok">close</span> &lt;n&gt;  manage open windows
+  <span class="t-ok">tabs</span> <span class="t-ok">browse</span> &lt;url&gt;         browser tabs and navigation
+  <span class="t-ok">qopen</span> <span class="t-ok">discord</span> <span class="t-ok">games</span> <span class="t-ok">store</span>  quick launches
+  <span class="t-ok">clash</span>/<span class="t-ok">on</span>/<span class="t-ok">off</span> <span class="t-ok">auto</span>          the little game
+  <span class="t-ok">icons</span> <span class="t-ok">arrange</span> <span class="t-ok">hide</span> <span class="t-ok">show</span>   desktop icons
   <span class="t-ok">cloak</span> / <span class="t-ok">blob</span> / <span class="t-ok">anticlose</span>   privacy toggles
-  <span class="t-ok">date</span> <span class="t-ok">whoami</span> <span class="t-ok">clear</span> <span class="t-ok">exit</span>`,
+  <span class="t-ok">title</span> &lt;text&gt;              disguise the tab title
+  <span class="t-ok">sysinfo</span> <span class="t-ok">free</span> <span class="t-ok">uptime</span> <span class="t-ok">bench</span>   system info
+  <span class="t-ok">theme</span> <span class="t-ok">next</span> <span class="t-ok">wallpaper</span> <span class="t-ok">next</span>  cycle looks
+  <span class="t-ok">settings</span> &lt;pane&gt;             jump to a settings pane
+  <span class="t-ok">toast</span> &lt;text&gt; <span class="t-ok">echo</span> &lt;text&gt; <span class="t-ok">time</span> <span class="t-ok">history</span>
+  <span class="t-ok">matrix</span> <span class="t-ok">date</span> <span class="t-ok">whoami</span> <span class="t-ok">clear</span> <span class="t-ok">exit</span>`,
         about: () => `NebulaOS ${Nebula.VERSION.os} “${Nebula.VERSION.codename}” build ${Nebula.VERSION.build}
 Ultraviolet 3.2.10 · Scramjet 1.1.0 · Scramjet 2.0.67-alpha.2 · bare-mux 2.1.9
 Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
@@ -5479,6 +5693,7 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
         engine: async (a) => { if (!Nebula.ENGINES[a]) return `<span class="t-err">unknown engine</span> (uv, sc2, sc1)`; set({ engine: a }); await Proxy.ensureEngine(a); return `engine → <span class="t-ok">${Nebula.ENGINES[a].name}</span>`; },
         transport: async (a) => { if (!Nebula.TRANSPORTS[a]) return `<span class="t-err">unknown transport</span> (epoxy, libcurl)`; set({ transport: a }); await Proxy.restart(); return `transport → <span class="t-ok">${Nebula.TRANSPORTS[a].name}</span>`; },
         wisp: async (a) => {
+          if (a === "test") return cmds.wispTest();
           if (!a) return `current: ${state.wisp}\npresets:\n` + Nebula.WISP_PRESETS.map((p) => `  ${p.name}  <span class="t-dim">${p.url}</span>`).join("\n");
           const url = a === "presets" ? "" : a;
           if (!url) return Nebula.WISP_PRESETS.map((p) => `${p.name} <span class="t-dim">${p.url}</span>`).join("\n");
@@ -5507,6 +5722,122 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
         },
         ls: (a) => { FS.load(); return FS.list(a || "/").map((i) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n") || "(empty)"; },
         cat: (a) => { FS.load(); if (!a) return "usage: cat <path>"; return esc(FS.read(a)) || `<span class="t-err">not found: ${esc(a)}</span>`; },
+        async netcheck() { const r = await Proxy.netCheck(true); return `<span class="t-ok">${esc(r.verdict)}</span>\n${esc(r.advice)}`; },
+        async probe(a) {
+          if (!a) return "usage: probe <url>";
+          const url = Proxy.toUrl(a);
+          try {
+            const r = await Proxy.fetchText(url, state.engine, 20000);
+            const note = r.text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+            return `<span class="t-ok">HTTP ${r.status}</span> · ${r.text.length} bytes · ${esc(url)}\n<span class="t-dim">${esc(note)}…</span>`;
+          } catch (e) { return `<span class="t-err">${esc(String(e.message || e))}</span>`; }
+        },
+        async wispTest() {
+          return Proxy.netCheck(false).then((r) => r.rows.map((x) => `${x.ok ? "✔" : "✘"} ${x.label} <span class="t-dim">${esc(x.detail)}</span>`).join("\n") + `\n<span class="t-ok">${esc(r.verdict)}</span>`);
+        },
+        apps() { return Registry.all().map((a) => `  ${a.id.padEnd(22)} ${a.name}`).join("\n") || "(none)"; },
+        run(a) { const app = Registry.byId(a); if (!app) return `<span class="t-err">no such app</span> — try: apps`; app.run(); return `launched ${esc(app.name)}`; },
+        windows() {
+          const list = [...Nebula.wins.values()];
+          if (!list.length) return "no windows open";
+          return list.map((w, i) => `  ${i}  ${esc(w.title)}${document.querySelector("#" + w.id + ".focused") ? "  ← focused" : ""}`).join("\n");
+        },
+        focus(a) { const list = [...Nebula.wins.values()]; const w = list[Number(a)]; if (!w) return "usage: focus <number from windows>"; w.focus(); return `focused ${esc(w.title)}`; },
+        close(a) { const list = [...Nebula.wins.values()]; const w = list[Number(a)]; if (!w) return "usage: close <number from windows>"; const t = w.title; w.close(); return `closed ${esc(t)}`; },
+        tabs() { const ts = Nebula.Browser.tabs || []; if (!ts.length) return "no browser tabs (open the browser first)"; return ts.map((t, i) => `  ${i}${t.id === Nebula.Browser.active ? "*" : " "} ${esc(t.title || "New tab")} <span class="t-dim">${esc(t.currentUrl || "—")}</span>`).join("\n"); },
+        qopen(a) { if (!a) return "usage: qopen <url>"; if (!Nebula.Quantum.win) Nebula.Quantum.open(a); else Nebula.Quantum.navigate(a); return `Quantum → ${esc(a)}`; },
+        discord() { Nebula.Discord.open(); return "opening Discord through the proxy…"; },
+        games() { Nebula.Games.openHub(); return "game hub opened"; },
+        store() { Nebula.AppStore.open(); return "app store opened"; },
+        settings(a) { Settings.open(a || "appearance"); return `settings → ${esc(a || "appearance")}`; },
+        icons(a) {
+          if (a === "hide") { Nebula.Desktop.setHidden(true); return "desktop icons hidden"; }
+          if (a === "show") { Nebula.Desktop.setHidden(false); return "desktop icons shown"; }
+          if (a === "arrange") { Nebula.Desktop.arrange(); return "icons arranged"; }
+          return `${Nebula.Desktop.list().length} icons · icons hide | show | arrange`;
+        },
+        ls(a) { FS.load(); return FS.list(a || "/").map((i) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n") || "(empty)"; },
+        cd(a) { return "the shell is a flat virtual filesystem — use ls with a path, e.g. ls /Documents"; },
+        write(a) {
+          const i = a.indexOf(" ");
+          if (i < 0) return "usage: write <path> <text>";
+          const path = a.slice(0, i), text = a.slice(i + 1);
+          FS.load(); FS.write(path, text); return `wrote ${text.length} chars → ${esc(path)}`;
+        },
+        mkdir(a) { if (!a) return "usage: mkdir <path>"; FS.load(); FS.mkdir(a); return `created ${esc(a)}`; },
+        rm(a) { if (!a) return "usage: rm <path>"; FS.load(); FS.remove(a); return `removed ${esc(a)}`; },
+        tree() {
+          FS.load();
+          const walk = (dir, depth) => FS.list(dir).map((i) => `${"  ".repeat(depth)}${i.type === "dir" ? "📁" : "📄"} ${i.name}` +
+            (i.type === "dir" && depth < 2 ? "\n" + walk(dir.replace(/\/$/, "") + "/" + i.name, depth + 1) : "")).join("\n");
+          return walk("/", 0) || "(empty)";
+        },
+        grep(a) {
+          const i = a.indexOf(" ");
+          if (i < 0) return "usage: grep <file> <text>";
+          FS.load();
+          const body = FS.read(a.slice(0, i));
+          if (!body) return `<span class="t-err">not found</span>`;
+          const needle = a.slice(i + 1).toLowerCase();
+          const hits = body.split("\n").map((l, n) => [n + 1, l]).filter(([, l]) => l.toLowerCase().includes(needle));
+          return hits.length ? hits.map(([n, l]) => `<span class="t-dim">${n}:</span> ${esc(l.slice(0, 120))}`).join("\n") : "no matches";
+        },
+        title(a) { if (!a) return "current title: " + document.title; document.title = a; Appearance.applyCloak && Appearance.applyCloak(); return `title → ${esc(a)}`; },
+        sysinfo() {
+          const heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + " MB heap" : "heap n/a";
+          return `    <span class="t-acc">nebula@os</span>
+    ─────────────────────────────────
+    OS        NebulaOS ${Nebula.VERSION.os} "${Nebula.VERSION.codename}"
+    Build     ${Nebula.VERSION.build}   Uptime ${Math.round(performance.now() / 1000)}s
+    Screen    ${innerWidth}×${innerHeight} @${devicePixelRatio}x
+    Engine    ${Nebula.ENGINES[state.engine].name}
+    Transport ${Nebula.TRANSPORTS[state.transport].name}
+    Relay     ${state.wisp}
+    Theme     ${state.theme} · ${state.wallpaper} · ${state.browserSkin} skin
+    Windows   ${Nebula.wins.size} open · ${Nebula.Desktop.list().length} desktop icons
+    Report    ${navigator.hardwareConcurrency || "?"} cores · ${heap}`;
+        },
+        free() {
+          let used = 0;
+          try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) used += (localStorage[k] || "").length + k.length; } catch {}
+          return `localStorage: ${Nebula.fmtBytes ? fmtBytes(used) : used + " B"} used of ~5 MB quota`;
+        },
+        uptime() { return `up ${Math.round(performance.now() / 1000)}s since boot`; },
+        time() { return new Date().toLocaleTimeString(); },
+        echo(a) { return esc(a || ""); },
+        async bench() {
+          const t0 = performance.now(); let frames = 0, last = t0;
+          await new Promise((res) => {
+            const tick = (t) => { frames++; if (t - t0 > 1500) return res(); requestAnimationFrame(tick); };
+            requestAnimationFrame(tick); setTimeout(res, 2000);
+          });
+          const fps = Math.round((frames / (performance.now() - t0)) * 1000);
+          return `render bench: <span class="t-ok">${fps} fps</span> over 1.5s`;
+        },
+        theme(a) {
+          if (a === "next") { const i = Nebula.THEMES.findIndex((x) => x.id === state.theme); const n = Nebula.THEMES[(i + 1) % Nebula.THEMES.length]; set({ theme: n.id }); return `theme → ${n.name}`; }
+          if (a === "list" || !a) return Nebula.THEMES.map((x) => `  ${x.id.padEnd(12)} ${x.name}`).join("\n");
+          const t = Nebula.THEMES.find((x) => x.id === a);
+          if (!t) return `<span class="t-err">unknown theme</span> — theme list`;
+          set({ theme: t.id }); return `theme → ${t.name}`;
+        },
+        wallpaper(a) {
+          if (a === "next") { const i = Nebula.WALLS.findIndex((x) => x.id === state.wallpaper); const n = Nebula.WALLS[(i + 1) % Nebula.WALLS.length]; set({ wallpaper: n.id }); return `wallpaper → ${n.name}`; }
+          if (a === "list" || !a) return Nebula.WALLS.map((x) => `  ${x.id.padEnd(12)} ${x.name}`).join("\n");
+          const w = Nebula.WALLS.find((x) => x.id === a);
+          if (!w) return "gradient, aurora, glacier";
+          set({ wallpaper: w.id }); return `wallpaper → ${w.name}`;
+        },
+        toast(a) { if (!a) return "usage: toast <text>"; toast("Terminal", esc(a), "ok", 3000); return "toast sent"; },
+        history() { return hist.slice(-20).map((c, i) => `  ${i + 1}  ${esc(c)}`).join("\n") || "(empty)"; },
+        matrix() {
+          const chars = "01アイウエオカキクケコサシスセソ#$%&";
+          let rows = 12;
+          const draw = () => chars.split("").sort(() => Math.random() - 0.5).slice(0, 58).join("").replace(/[^ ]/g, (c) => `<span class="t-ok">${c}</span>`);
+          print(draw()); print(draw()); print(draw()); print(draw()); print(draw());
+          return `<span class="t-dim">(that is as much matrix as a terminal line can hold)</span>`;
+        },
+        clash() { return "clash is a browser-side game — try the Games app instead: <span class='t-ok'>games</span>"; },
         cloak: () => { Privacy.cloak(); return "tab cloaked → " + document.title; },
         blob: () => { Privacy.toBlob(); return "converting…"; },
         anticlose: (a) => { const v = a ? a === "on" : !state.anticlose; set({ anticlose: v }); return `anti-close → ${v ? "on" : "off"}`; },
@@ -5517,6 +5848,7 @@ Transport: ${state.transport}   Engine: ${state.engine}   Wisp: ${state.wisp}`,
       };
       const run = async (raw) => {
         print(`<span class="t-dim">nebula@os:~$</span> ${esc(raw)}`);
+        if (raw.trim()) { hist.push(raw.trim()); if (hist.length > 50) hist.shift(); }
         const [c, ...rest] = raw.trim().split(/\s+/);
         const arg = rest.join(" ");
         if (!c) return;
