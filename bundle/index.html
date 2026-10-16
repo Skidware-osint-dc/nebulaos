@@ -271,14 +271,17 @@ body.no-blur #bar { background: var(--bar-bg); backdrop-filter: none; }
 @media (max-width: 1180px) { #bar .bar-label { display: none; } #bar .bar-btn { padding: 0 8px; } }
 @media (max-width: 900px) { #btn-new-window, #activites-label { display: none; } }
 #bar-left, #bar-right { display: flex; align-items: center; gap: 4px; }
-#bar-left { flex: 1; min-width: 0; }
-#bar-right { flex: 1; justify-content: flex-end; }
-#bar-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; }
+#bar-left { flex: 1; min-width: 0; overflow: hidden; }
+#bar-right { flex: 1; min-width: 0; justify-content: flex-end; }
+/* The clock used to be absolutely positioned at 50%, which meant a long focused
+   window title ran underneath it ("Nebula Bro|17:01"). A real middle column
+   keeps the clock centred (both sides are flex:1) and truncates the title first. */
+#bar-center { flex: none; display: flex; align-items: center; gap: 6px; }
 #clock-time { font-weight: 600; letter-spacing: 0.2px; }
 #clock-date { opacity: 0.66; }
 #activites-label { font-weight: 600; }
-#focus-app { font-weight: 600; opacity: 0.95; overflow: hidden; text-overflow: ellipsis; max-width: 32vw; }
-#focus-sub { opacity: 0.6; font-size: 11.5px; }
+#focus-app { font-weight: 600; opacity: 0.95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#focus-sub { opacity: 0.6; font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bar-badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 1px 8px 1px 7px; height: 19px; border-radius: var(--radius-pill);
