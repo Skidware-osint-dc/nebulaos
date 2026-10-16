@@ -999,3 +999,79 @@ body[data-theme="pyro"] .bar-btn span, body[data-theme="pyro"] #clock-time { let
 .quantum .q-note { font-size: 11.5px; color: #a9add9; background: rgba(10, 10, 26, .7); border: 1px solid rgba(120,130,255,.2); border-radius: 10px; padding: 9px 13px; }
 .quantum .q-note code { color: #7de3e3; }
 .quantum .q-surl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ==========================================================================
+ *  Motion — animated wallpaper, drifting orbs, UI transitions.
+ *  Everything here is transform/opacity only (GPU friendly) and is switched
+ *  off wholesale by body[data-motion="off"] or prefers-reduced-motion.
+ * ======================================================================== */
+body[data-motion="on"] #wallpaper::before {
+  content: ""; position: absolute; inset: -30%; pointer-events: none; opacity: 0.55;
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, .10), transparent 70%) 12% 22% / 46vw 46vw no-repeat,
+    radial-gradient(closest-side, var(--accent-soft), transparent 72%) 78% 34% / 52vw 52vw no-repeat,
+    radial-gradient(closest-side, rgba(255, 255, 255, .07), transparent 70%) 42% 82% / 40vw 40vw no-repeat;
+  animation: orb-drift 46s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes orb-drift {
+  0%   { transform: translate3d(-2%, -1%, 0) scale(1); }
+  50%  { transform: translate3d(3%, 2.5%, 0) scale(1.08); }
+  100% { transform: translate3d(-1.5%, 3%, 0) scale(1.03); }
+}
+body[data-motion="on"] #wallpaper::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .055) 50%, transparent 58%);
+  background-size: 300% 300%;
+  animation: sheen 22s linear infinite;
+}
+@keyframes sheen { from { background-position: 0% 0%; } to { background-position: 300% 0%; } }
+
+/* windows */
+body[data-motion="on"] .window { animation: win-in 200ms var(--t-spring); }
+@keyframes win-in {
+  from { opacity: 0; transform: scale(.97) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+body[data-motion="on"] .window.closing { animation: win-out 150ms ease forwards; }
+@keyframes win-out { to { opacity: 0; transform: scale(.97) translateY(6px); } }
+
+/* dock + top bar */
+body[data-motion="on"] .dock-item { transition: transform 160ms var(--t-spring), background var(--t-fast); }
+body[data-motion="on"] .dock-item:hover { transform: translateY(-4px) scale(1.06); }
+body[data-motion="on"] .bar-btn { transition: background var(--t-fast), color var(--t-fast), transform 140ms ease; }
+body[data-motion="on"] .bar-btn:active { transform: scale(.94); }
+
+/* launcher + web start-page tiles stagger in */
+body[data-motion="on"] .launcher-tile, body[data-motion="on"] .sp-quick .tile, body[data-motion="on"] .pyro-cat {
+  animation: tile-in 260ms var(--t-spring) backwards;
+}
+body[data-motion="on"] .launcher-tile:nth-child(1), body[data-motion="on"] .pyro-cat:nth-child(1) { animation-delay: 0ms; }
+body[data-motion="on"] .launcher-tile:nth-child(2), body[data-motion="on"] .pyro-cat:nth-child(2) { animation-delay: 35ms; }
+body[data-motion="on"] .launcher-tile:nth-child(3), body[data-motion="on"] .pyro-cat:nth-child(3) { animation-delay: 70ms; }
+body[data-motion="on"] .launcher-tile:nth-child(4), body[data-motion="on"] .pyro-cat:nth-child(4) { animation-delay: 105ms; }
+body[data-motion="on"] .launcher-tile:nth-child(5), body[data-motion="on"] .pyro-cat:nth-child(5) { animation-delay: 140ms; }
+body[data-motion="on"] .launcher-tile:nth-child(6), body[data-motion="on"] .pyro-cat:nth-child(6) { animation-delay: 175ms; }
+body[data-motion="on"] .launcher-tile:nth-child(n+7), body[data-motion="on"] .pyro-cat:nth-child(n+7) { animation-delay: 200ms; }
+@keyframes tile-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* menus, toasts, tabs, desktop icons */
+body[data-motion="on"] .ctxmenu { animation: menu-in 130ms ease-out; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+body[data-motion="on"] .toast { animation: toast-in 220ms var(--t-spring); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+body[data-motion="on"] .browser .tab { transition: background var(--t-fast), box-shadow var(--t-fast); }
+body[data-motion="on"] .browser .tabview, body[data-motion="on"] .quantum .q-view { animation: fade 180ms ease; }
+body[data-motion="on"] #icons > * { animation: tile-in 200ms ease backwards; }
+body[data-motion="on"] .icon:hover, body[data-motion="on"] #icons .icon:hover { transform: translateY(-2px); }
+body[data-motion="on"] .settings .pane { animation: fade 160ms ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* opt-out */
+body[data-motion="off"] *, body[data-motion="off"] *::before, body[data-motion="off"] *::after {
+  animation: none !important; transition: none !important;
+}
+body[data-motion="off"] #wallpaper::before, body[data-motion="off"] #wallpaper::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #wallpaper::before, #wallpaper::after { animation: none !important; }
+}
