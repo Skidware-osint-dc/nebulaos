@@ -165,6 +165,38 @@ the same check).
 | `wss://wisp.mercurywork.shop/` | accepts the socket, then drops the request — do not rely on it |
 | `ws://localhost:4000/` | self-hosted, private, fastest — see §9 |
 
+### When the network blocks the relay (school Chromebooks)
+
+ContentKeeper, Cisco Umbrella and GoGuardian usually **allow HTTPS and block WebSocket upgrades**.
+Everything else in NebulaOS keeps working, but the proxy cannot: Wisp is a WebSocket. That is a
+network rule, not a bug, and no public relay can get around it.
+
+Run **`netcheck`** in the Terminal (or **Settings → Proxy → Network check**) and it separates the
+layers for you:
+
+```
+✔ Plain HTTPS                reached cdn.jsdelivr.net in 767 ms
+✘ WebSockets (neutral host)  no websocket anywhere — refused or blocked
+✘ Mercury Workshop           wisp.mercurywork.shop — socket blocked (HTTPS ok)
+✘ Fly.io relay               bare-server.fly.dev — socket blocked (HTTPS ok)
+VERDICT: Your network allows HTTPS but blocks WebSockets
+```
+
+The verdict tells you which of four situations you are in: no internet at all, HTTPS-only (a
+filter), relays reachable but refusing traffic, or working (in which case it switches to the relay
+that answered and browsing continues). On a healthy network the same command ends with
+`Working: switched to Anura (wss://anura.pro/)`.
+
+What does work on a filtered network: a phone hotspot, using it off-network, or asking IT to allow
+`wss://` to one specific host. Running your own relay on a machine you control is the private
+option — `npx wisp-server-node`, then paste the URL into Settings → Proxy.
+
+### Reset the look: animation and skins
+
+Wallpaper drift, window/menu/toast motion and tile stagger animations are on by default and switch
+off wholesale with **Settings → Appearance → Animations** (or immediately when your OS reports
+`prefers-reduced-motion`). Useful on a slow Chromebook together with **Glass blur off**.
+
 Public relays are other people's servers: they can rate-limit you, and they can see the traffic that
 passes through them. For anything private, run your own (`npx wisp-server-node`) and paste its URL
 into Settings → Proxy.
@@ -277,7 +309,7 @@ the dock, and a shortcut whose app no longer exists reports itself instead of fa
 | **Files** | Virtual filesystem (localStorage) with folders, rename, delete, download, disk import, and HTML documents that open as their own window. |
 | **Notepad** | Editor with Ctrl+S, download, character count. |
 | **Calculator, Paint** | Working calculator; Paint with brush sizes, colours, eraser and PNG export. |
-| **Terminal** | Real command line across the whole OS — `help`, `engine`, `transport`, `wisp`, `search`, `theme`, `wallpaper`, `proxy`, `fetch`, `diag`, `open`, `ls`, `cat`, `cloak`, `blob`, `anticlose`… |
+| **Terminal** | Real command line across the whole OS, **40+ commands** — `netcheck` (network triage), `wisp test`, `probe <url>`, `sysinfo`, `apps`, `run`, `windows`, `focus`, `close`, `tabs`, `qopen`, `icons hide/show/arrange`, `ls` `cat` `write` `mkdir` `rm` `tree` `grep`, `theme next/list`, `wallpaper next/list`, `bench`, `free`, `uptime`, `toast`, `title`, `settings <pane>`, `matrix`, `history`, `engine`, `transport`, `wisp`, `proxy`, `cloak`, `blob`, `anticlose`… |
 | **Settings** | Appearance (theme, wallpaper, **browser skin**), Proxy, Search, Privacy, System panes. |
 
 | Browser (real page) | Discord login | Settings → Proxy | Games |
